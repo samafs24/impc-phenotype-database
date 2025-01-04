@@ -195,7 +195,7 @@ server <- function(input, output, session) {
   # Visualization 2: 
   # Render the UI container based on the selected plot type
   output$phenotype_plot_container <- renderUI({
-    if (input$genotype_plot_type == "All Genotypes") {
+    if (input$phenotype_plot_type == "All Genotypes") {
       div(
         style = "overflow-x: auto; overflow-y: hidden; height: 700px;",
         plotlyOutput("mouse_phenotype_plot", width = "5000px", height = "100%")
@@ -248,25 +248,29 @@ server <- function(input, output, session) {
         Threshold = ifelse(avg_p_value < input$phenotype_threshold, "Significant", "Not Significant") # Determine significance
       )
     
-    p <- ggplot(data, aes(x = reorder(gene_symbol, avg_p_value), y = avg_p_value, color = Threshold, text = paste("p-value:", avg_p_value, "<br>Gene:", gene_symbol))) +
-      geom_point(size = 1.5) +
+    if (input$phenotype_plot_type == "Top 25 Genotypes") { # Subset the data for top 25 genes
+      data <- data[1:min(25, nrow(data)), ]
+    }
+    
+    p <- ggplot(data, aes(x = reorder(gene_symbol, avg_p_value), y = -log10(avg_p_value), color = Threshold, text = paste("p-value:", avg_p_value, "<br>Gene:", gene_symbol))) +
+      geom_point(size = 3.5) +
       scale_color_manual(values = c("Significant" = "palegreen3", "Not Significant" = "indianred3")) +
       labs(
-        title = paste("Gene Knockout Scores for Selected Phenotype:", input$phenotype),
+        title = paste(input$phenotype_plot_type, "for", input$phenotype),
         subtitle = paste("Showing genes with p-value <= ", input$phenotype_threshold),
-        x = "Gene Symbol", 
-        y = "p-value for Gene Association"
+        x = "Genotype", 
+        y = "Significance (-log10(p-value))"
       ) +
       theme_minimal() +
       theme(
-        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 4, face = "bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 10, face = "bold"),
         axis.title.x = element_text(size = 12, face = "bold"),
         axis.title.y = element_text(size = 12, face = "bold"),
         plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
         plot.subtitle = element_text(size = 12, hjust = 0.5),
         axis.text.y = element_text(size = 10)
       ) +
-      geom_hline(yintercept = input$phenotype_threshold, linetype = "dashed", color = "black")
+      geom_hline(yintercept = -log10(input$phenotype_threshold), linetype = "dashed", color = "black")
     
     ggplotly(p, tooltip = "text")
   })
