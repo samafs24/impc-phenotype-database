@@ -55,37 +55,23 @@ server <- function(input, output, session) {
   # Dynamically populate dropdowns for Figure 2
   observe({
     # Populate phenotype group options
-    groups <- dbGetQuery(con, "SELECT DISTINCT group_name FROM Groupings ORDER BY group_name ASC;")
-    groups$group_name <- str_to_title(groups$group_name)
-    updateSelectInput(session, "phenotype_group", choices = groups$group_name)
+    procedures <- dbGetQuery(con, "SELECT DISTINCT procedure_name FROM ProceduresTable ORDER BY procedure_name ASC;")
+    procedures$procedure_name <- str_to_title(procedures$procedure_name)
+    updateSelectInput(session, "procedure", choices = procedures$procedure_name)
   })
   
   observe({
     # Populate phenotype based on the selected group
-    req(input$phenotype_group)
-    phenotype_data <- dbGetQuery(con, sprintf("
-      SELECT P.parameter_name, COUNT(A.p_value) AS data_count
-      FROM Parameters P
-      JOIN ParameterGroupings PG ON P.parameter_id = PG.parameter_id
-      LEFT JOIN Analyses A ON P.parameter_id = A.parameter_id
-      JOIN Groupings GR ON PG.group_id = GR.group_id
-      WHERE GR.group_name = '%s'
-      GROUP BY P.parameter_name ORDER BY P.parameter_name ASC;",
-                                              input$phenotype_group))
-    
-    # Check if this is needed, or if the error message with "please select other parameters" is not enought;
-    available_data <- phenotype_data %>%
-      filter(data_count > 0) %>%
-      pull(parameter_name)
-    
-    if (length(available_data) > 0) {
-      updateSelectInput(session, "phenotype", choices = available_data)
-      output$phenotype_explanation <- renderText("Only phenotypes with data available are shown.")
-    } else {
-      updateSelectInput(session, "phenotype", choices = c("No data available"))
-      output$phenotype_explanation <- renderText("No data is available for the selected parameter group.")
-    }
+    req(input$procedure)
+    phenotypes <- dbGetQuery(con, sprintf("
+    SELECT P.parameter_name FROM Parameters P
+    JOIN ProceduresTable PT ON P.procedure_id = PT.procedure_id
+    WHERE PT.procedure_name = '%s'
+    ORDER BY P.parameter_name ASC;", input$procedure))
+    phenotypes$parameter_name <- str_to_title(phenotypes$parameter_name)
+    updateSelectInput(session, "phenotype", choices = phenotypes$parameter_name)
   })
+  
   
   # Dynamically populate dropdowns for Figure 3
   observe({
@@ -136,7 +122,7 @@ server <- function(input, output, session) {
     
     data <- dbGetQuery(con, final_query)
     
-    output$no_data_message <- renderUI({
+    output$no_data_message_genotype <- renderUI({
       if (is.null(data) || nrow(data) == 0) {
         tagList(
           h3("No data available for the selected parameters. Please adjust your filters.",
@@ -199,23 +185,24 @@ server <- function(input, output, session) {
   })
   
   output$mouse_phenotype_plot <- renderPlotly({
-    req(input$phenotype, input$phenotype_group)
+    req(input$phenotype, input$procedure)
     
-    # Query to fetch p-values for the selected phenotype and group
+    # Query to fetch p-values for the selected phenotype and procedure
     query <- sprintf("SELECT AVG(A.p_value) AS avg_p_value, G.gene_symbol FROM Analyses A
                      JOIN Genes G ON A.gene_accession_id = G.gene_accession_id
                      JOIN Parameters P ON A.parameter_id = P.parameter_id
-                     JOIN ParameterGroupings PG ON P.parameter_id = PG.parameter_id
-                     JOIN Groupings GR ON PG.group_id = GR.group_id
-                     WHERE P.parameter_name = '%s' AND GR.group_name = '%s'
+                     JOIN ProceduresTable PT ON P.procedure_id = PT.procedure_id
+                     WHERE P.parameter_name = '%s' AND PT.procedure_name = '%s'
                      GROUP BY G.gene_symbol ORDER BY avg_p_value ASC;", 
-                     input$phenotype, input$phenotype_group)
+                     input$phenotype, input$procedure)
+    
+    cat(query)
     
     # Fetch data from the database
     data <- dbGetQuery(con, query)
     
     # If no data is available, display a message
-    output$no_data_message <- renderUI({
+    output$no_data_message_phenotype <- renderUI({
       if (is.null(data) || nrow(data) == 0) {
         tagList(
           h3("No data available for the selected parameters. Please adjust your filters.",
