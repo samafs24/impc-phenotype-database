@@ -62,20 +62,33 @@ ui <- fluidPage(
       conditionalPanel(
         condition = "input.tabs == 'clustering_tab'",
         selectInput("cluster_method", "Clustering Method:", choices = c("Hierarchical", "PCA", "UMAP"), selected = "Hierarchical"),
+        # Only show number of clusters if PCA or UMAP is chosen
         conditionalPanel(
           condition = "input.cluster_method == 'PCA' || input.cluster_method == 'UMAP'",
-          numericInput("num_clusters", "Number of Clusters (K-Means):", value = 3, min = 2, max = 50, step = 1)
+          numericInput("num_clusters", "Number of Clusters (K-Means):",
+                       value = 3, min = 2, max = 50, step = 1)
         ),
-        selectInput("gene_subset", "Subset of Genes:", choices = c("All genes", "Genes with significant phenotypes (p<0.05)", "User-specific genes"), selected = "All genes"),
+        selectInput("gene_subset", "Subset of Genes:",
+                    choices = c("All genes", 
+                                "Genes with significant phenotypes (p<0.05)", 
+                                "User-specific genes"),
+                    selected = "All genes"),
+        # Only show user_genes selection if "User-specific genes" is chosen
         conditionalPanel(
           condition = "input.gene_subset == 'User-specific genes'",
-          selectizeInput("cluster_genotype", "Select Gene Symbols:", choices = NULL, multiple = TRUE, options = list(placeholder = 'Select at least 3 genes', maxOptions = 10))
+          selectizeInput("user_genes", 
+                         "Select Gene Symbols:", 
+                         choices = NULL,   # We'll update via server
+                         multiple = TRUE,
+                         options = list(placeholder = 'Select at least 3 genes',
+                                        maxOptions = 10))  # tune as needed
         ),
+        # We rename the strain/life_stage *for cluster tab* to avoid ID conflicts
         selectInput("cluster_mouse_strain", "Select Mouse Strain:", choices = NULL, selected = "All"),
         selectInput("cluster_life_stage", "Select Mouse Life Stage:", choices = NULL, selected = "All")
       )
     ),
-    
+
     mainPanel(
       tabsetPanel(
         id = "tabs",

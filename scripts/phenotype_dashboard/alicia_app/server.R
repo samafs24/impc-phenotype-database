@@ -99,7 +99,7 @@ server <- function(input, output, session) {
   output$genotype_plot_container <- renderUI({
     if (input$genotype_plot_type == "All Phenotypes") {
       div(
-        style = "overflow-x: auto; overflow-y: hidden; height: 700px;",
+        style = "overflow-x: auto; overflow-y: hidden; height: 720px;",
         plotlyOutput("mouse_genotype_plot", width = "5000px", height = "100%")
       )
     } else {
@@ -154,7 +154,7 @@ server <- function(input, output, session) {
       y = -log2(avg_p_value), # Transform the p-value for intuitive visualization
       fill = Threshold, 
       text = paste0("Parameter Name: ", parameter_name, "<br>P-value: ", signif(avg_p_value, digits = 3), "<br>Threshold: ", Threshold))) + # Add labels when hover 
-      geom_bar(stat = "identity", width = 0.6, show.legend = TRUE) +
+      geom_bar(stat = "identity", width = 0.8, show.legend = TRUE) +
       scale_x_discrete(labels = data$parameter_name) +  # Display only parameter_name
       scale_fill_manual(values = c("Significant" = "palegreen3", "Not Significant" = "indianred3")) + 
       labs(
@@ -164,7 +164,7 @@ server <- function(input, output, session) {
       ) +
       theme_minimal() +
       theme(
-        axis.text.x = element_text(angle = 45, hjust = 0, vjust = 1, size = 10, face = "bold"),
+        axis.text.x = element_text(angle = 35, hjust = 0, vjust = 1, size = 9, face = "bold"),
         axis.text.y = element_text(size = 10),
         axis.title.x = element_text(size = 12, face = "bold"),  
         axis.title.y = element_text(size = 12, face = "bold"),  
@@ -179,7 +179,7 @@ server <- function(input, output, session) {
   output$phenotype_plot_container <- renderUI({
     if (input$phenotype_plot_type == "All Genotypes") {
       div(
-        style = "overflow-x: auto; overflow-y: hidden; height: 700px;",
+        style = "overflow-x: auto; overflow-y: hidden; height: 720px;",
         plotlyOutput("mouse_phenotype_plot", width = "5000px", height = "100%")
       )
     } else {
@@ -216,7 +216,7 @@ server <- function(input, output, session) {
     }
     
     p <- ggplot(data, aes(x = reorder(gene_symbol, avg_p_value), y = -log10(avg_p_value), fill = Threshold, text = paste("p-value:", avg_p_value, "<br>Gene:", gene_symbol))) +
-      geom_bar(stat = "identity", width = 0.6, show.legend = TRUE) +
+      geom_bar(stat = "identity", width = 0.8, show.legend = TRUE) +
       scale_fill_manual(values = c("Significant" = "palegreen3", "Not Significant" = "indianred3")) +
       labs(
         title = paste(input$phenotype_plot_type, "for", input$phenotype),
