@@ -136,17 +136,6 @@ server <- function(input, output, session) {
     
     data <- dbGetQuery(con, final_query)
     
-    output$no_data_message_genotype <- renderUI({
-      if (is.null(data) || nrow(data) == 0) {
-        tagList(
-          h3("No data available for the selected parameters. Please adjust your filters.",
-             style = "color: red; text-align: center;")
-        )
-      } else {
-        NULL
-      }
-    })
-    
     data <- data %>%
       filter(!is.na(parameter_name) & tolower(parameter_name) != "na") %>% # Remove rows with missing or invalid parameter names
       mutate(
@@ -214,18 +203,6 @@ server <- function(input, output, session) {
     
     # Fetch data from the database
     data <- dbGetQuery(con, query)
-    
-    # If no data is available, display a message
-    output$no_data_message_phenotype <- renderUI({
-      if (is.null(data) || nrow(data) == 0) {
-        tagList(
-          h3("No data available for the selected parameters. Please adjust your filters.",
-             style = "color: red; text-align: center;")
-        )
-      } else {
-        NULL
-      }
-    })
     
     # Group and summarize data for bar plot
     data <- data %>%

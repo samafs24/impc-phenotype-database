@@ -84,7 +84,6 @@ ui <- fluidPage(
         tabPanel(
           "Phenotype Scores for Selected Knockout Mouse",
           value = "mouse_genotype_tab",
-          uiOutput("no_data_message_genotype"),  # Dynamic message output
           uiOutput("genotype_plot_container"),  # Placeholder for dynamically rendered plot output
           downloadButton("download_mouse_data", "Download Mouse Data")  # Button for downloading mouse data
         ),
@@ -93,7 +92,6 @@ ui <- fluidPage(
         tabPanel(
           "Knockout Gene Scores for Selected Phenotype",
           value = "mouse_phenotype_tab",
-          uiOutput("no_data_message_phenotype"),  # Dynamic message output
           uiOutput("phenotype_plot_container"),  # Placeholder for dynamically rendered plot output
           downloadButton("download_phenotype_data", "Download Phenotype Data")  # Button for downloading phenotype data
         ),
