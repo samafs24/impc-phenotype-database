@@ -100,7 +100,7 @@ server <- function(input, output, session) {
     req(input$genotype_mouse)
     
     base_query <- sprintf("
-    SELECT P.parameter_name, P.parameter_id, AVG(A.p_value) AS avg_p_value
+    SELECT P.parameter_name, P.parameter_id, AVG(CASE WHEN A.p_value = 0 THEN 0.000001 ELSE A.p_value END) AS avg_p_value, COUNT(A.p_value) AS data_count
     FROM Analyses A
     JOIN Parameters P ON A.parameter_id = P.parameter_id
     WHERE A.gene_accession_id IN (
@@ -120,6 +120,7 @@ server <- function(input, output, session) {
     final_query <- paste0(base_query, "GROUP BY P.parameter_id, P.parameter_name
                           ORDER BY avg_p_value ASC;")
     
+    cat(final_query)
     data <- dbGetQuery(con, final_query)
     
     output$no_data_message_genotype <- renderUI({
@@ -188,7 +189,7 @@ server <- function(input, output, session) {
     req(input$phenotype, input$procedure)
     
     # Query to fetch p-values for the selected phenotype and procedure
-    query <- sprintf("SELECT AVG(A.p_value) AS avg_p_value, G.gene_symbol FROM Analyses A
+    query <- sprintf("SELECT AVG(CASE WHEN A.p_value = 0 THEN 0.000001 ELSE A.p_value END) AS avg_p_value, COUNT(A.p_value) AS data_count, G.gene_symbol FROM Analyses A
                      JOIN Genes G ON A.gene_accession_id = G.gene_accession_id
                      JOIN Parameters P ON A.parameter_id = P.parameter_id
                      JOIN ProceduresTable PT ON P.procedure_id = PT.procedure_id
