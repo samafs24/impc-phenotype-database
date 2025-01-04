@@ -51,23 +51,13 @@ ui <- fluidPage(
         conditionalPanel(
           condition = "input.cluster_method == 'PCA' || input.cluster_method == 'UMAP'",
           numericInput("num_clusters", "Number of Clusters (K-Means):",
-                       value = 3, min = 2, max = 50, step = 1)
+                       value = 3, min = 2, max = 20, step = 1)
         ),
         selectInput("gene_subset", "Subset of Genes:",
                     choices = c("All genes", 
-                                "Genes with significant phenotypes (p<0.05)", 
-                                "User-specific genes"),
+                                "Genes with significant phenotypes (p<0.05)"), 
                     selected = "All genes"),
-        # Only show user_genes selection if "User-specific genes" is chosen
-        conditionalPanel(
-          condition = "input.gene_subset == 'User-specific genes'",
-          selectizeInput("user_genes", 
-                         "Select Gene Symbols:", 
-                         choices = NULL,   # We'll update via server
-                         multiple = TRUE,
-                         options = list(placeholder = 'Select at least 3 genes',
-                                        maxOptions = 10))  # tune as needed
-        ),
+        
         # We rename the strain/life_stage *for cluster tab* to avoid ID conflicts
         selectInput("cluster_mouse_strain", "Select Mouse Strain:", 
                     choices = NULL, 
@@ -200,13 +190,6 @@ server <- function(input, output, session) {
                       choices = c("All", sort(life_stages$mouse_life_stage)))
   })
   
-  # Populate user_genes (for user-specific genes) with all gene symbols
-  observe({
-    # We'll re-use the Genes table
-    all_genes <- dbGetQuery(con, "SELECT DISTINCT gene_symbol FROM Genes;")
-    # Update the selectizeInput with all possible gene symbols
-    updateSelectizeInput(session, "user_genes", choices = all_genes$gene_symbol, server = TRUE)
-  })
   
   # Visualisation 1: Statistical Scores for Selected Knockout Mouse
   
@@ -441,15 +424,7 @@ server <- function(input, output, session) {
       keep_rows <- apply(data_wide, 1, function(x) any(x < 0.05, na.rm = TRUE))
       data_wide <- data_wide[keep_rows, , drop = FALSE]
       
-    } else if (input$gene_subset == "User-specific genes") {
-      # If user selected fewer than 2 genes, show a message
-      if (length(input$user_genes) < 3) {
-        plot.new()
-        title("Please select at least 2 genes for PCA/UMAP.")
-        return(NULL)
-      }
-      data_wide <- data_wide[rownames(data_wide) %in% input$user_genes, , drop = FALSE]
-    }
+    } 
     
     # Check if anything remains
     if (nrow(data_wide) == 0) {
@@ -470,17 +445,18 @@ server <- function(input, output, session) {
         title("Not enough data for hierarchical clustering (need >= 2 rows).")
         return(NULL)
       }
+      
       # Perform hierarchical clustering
       hc <- hclust(dist(mat_scaled), method = "ward.D")
       
-      # 3. Convert hclust -> dendrogram -> apply "hang" to shorten tips
+      #    Convert hclust -> dendrogram -> apply "hang" to shorten tips
       #    "hang" sets how far tips hang below the rest of the dendrogram.
       #    0.1 or 0.2 often works well. Smaller => shorter vertical lines to labels.
       library(dendextend)  # install.packages("dendextend") if needed
       dend <- as.dendrogram(hc)
       dend <- hang.dendrogram(dend, hang = 0.2)  # tweak 0.2 as desired
       
-      # 2) Convert to a ggdendro-friendly structure
+      #    Convert to a ggdendro-friendly structure
       library(ggdendro)   # install.packages("ggdendro") if not installed
       dend_data <- dendro_data(dend, type = "rectangle")
       
@@ -576,8 +552,7 @@ server <- function(input, output, session) {
       gene_subset_label <- switch(
         input$gene_subset,
         "All genes" = "All Genes",
-        "Genes with significant phenotypes (p<0.05)" = "Significant Genes",
-        "User-specific genes" = "User-Selected Genes"
+        "Genes with significant phenotypes (p<0.05)" = "Significant Genes"
       )
       plot_title <- paste("PCA Clustering of", gene_subset_label)
       
@@ -653,9 +628,7 @@ server <- function(input, output, session) {
       gene_subset_label <- switch(
         input$gene_subset,
         "All genes" = "All Genes",
-        "Genes with significant phenotypes (p<0.05)" = "Significant Genes",
-        "User-specific genes" = "User-Selected Genes"
-      )
+        "Genes with significant phenotypes (p<0.05)" = "Significant Genes"      )
       
       # Create the UMAP plot using ggplot2
       p <- ggplot(umap_data, aes(x = UMAP1, y = UMAP2, color = cluster, text = paste0("Gene: ", gene_symbol, "<br>Cluster: ", cluster))) +
