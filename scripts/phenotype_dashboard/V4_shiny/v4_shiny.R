@@ -95,7 +95,8 @@ ui <- fluidPage(
         
         tabPanel("Gene Clusters",
                  value = "clusters_tab",
-                 plotlyOutput("gene_cluster_plot", height = "2000px"),
+                 uiOutput("insufficient_data_message"),
+                 plotlyOutput("gene_cluster_plot", height = "auto"),
                  downloadButton("download_cluster_data", "Download Cluster Data"))
       )
     )
@@ -409,8 +410,8 @@ server <- function(input, output, session) {
     wide_df <- df %>%
       tidyr::pivot_wider(
         names_from = parameter_id,
-        values_from = avg_p_value,
-        values_fill = list(avg_p_value = 0) # fill missing with 0 
+        values_from = avg_rounded_pvalue,
+        values_fill = list(avg_rounded_value = 0) # fill missing with 0 
       )
     
     # Convert gene_accession_id into rownames, assuming 'gene_accession_id' is a column in df
@@ -458,7 +459,7 @@ server <- function(input, output, session) {
     }
     
     # Scale the data
-    #mat_scaled <- scale(data_wide)
+    mat_scaled <- scale(data_wide)
     
     
     #Clustering
@@ -528,19 +529,50 @@ server <- function(input, output, session) {
         )
 
     } else if (input$cluster_method == "PCA") {
+      req(data_wide) # Ensure data is available
       
-      # Run PCA
-      pca_result <- prcomp(data_wide, scale. = TRUE)
-      # Extract the top 2 PCs (for visualization)
+      # Check if the number of rows is sufficient for PCA
+      if (nrow(data_wide) < 2) {  # PCA requires at least 2 rows
+        # Show the error message in the UI with smaller font size
+        output$insufficient_data_message <- renderUI({
+          tagList(
+            h3("PCA requires at least 2 genes to perform the analysis.",
+               style = "color: red; text-align: center; font-size: 16px;"),
+            p("Please adjust your filters or select a broader dataset to proceed.", 
+              style = "text-align: center; font-size: 14px;")
+          )
+        })
+        # Return NULL to skip plotting
+        return(NULL)
+      } else {
+        # Clear the message if data is sufficient
+        output$insufficient_data_message <- renderUI({ NULL })
+      }
+      
+      # Join gene symbols with data_wide if not already included
+      if (!"gene_symbol" %in% colnames(data_wide)) {
+        gene_info <- dbGetQuery(con, "SELECT gene_accession_id, gene_symbol FROM Genes")
+        data_wide <- data_wide %>%
+          rownames_to_column(var = "gene_accession_id") %>%
+          left_join(gene_info, by = "gene_accession_id") %>%
+          column_to_rownames(var = "gene_accession_id")
+      }
+      
+      # Ensure only numeric columns are used for PCA
+      numeric_data <- data_wide[, sapply(data_wide, is.numeric)]
+      
+      # Run PCA #data_wide should have genes as rows and parameters as columns
+      pca_result <- prcomp(numeric_data, scale. = TRUE)  # Automatically scales the data
+      
+      # Extract the top 2 PCs for visualisation, representing the most significant axes of variation in the data
       pca_data <- as.data.frame(pca_result$x[, 1:2])
-      pca_data$gene <- rownames(data_wide)
+      pca_data$gene_symbol <- data_wide$gene_symbol  # Add gene_symbol for tooltip
       
-      # K-means clustering 
-      # Perform k-means clustering on PC1 and PC2
+      # Perform k-means clustering on PC1 and PC2 to identify groups of genes based on their similarity in PCA space
       km <- kmeans(pca_data[, 1:2], centers = input$num_clusters)
-      pca_data$cluster <- factor(km$cluster)
+      pca_data$cluster <- factor(km$cluster) # Add cluster assignments as a factor column
       
-      # Set dynamic graph title
+      # Set dynamic graph title based on the gene subset selected
       gene_subset_label <- switch(
         input$gene_subset,
         "All genes" = "All Genes",
@@ -549,8 +581,8 @@ server <- function(input, output, session) {
       )
       plot_title <- paste("PCA Clustering of", gene_subset_label)
       
-      # Plot
-      p <- ggplot(pca_data, aes(x = PC1, y = PC2, color = cluster, text = paste0("Gene: ", gene, "<br>Cluster: ", cluster))) +
+      # Create the PCA plot
+      p <- ggplot(pca_data, aes(x = PC1, y = PC2, color = cluster, text = paste0("Gene: ", gene_symbol, "<br>Cluster: ", cluster))) +
         geom_point(size = 3, alpha = 0.8) +
         scale_color_manual(values = rainbow(input$num_clusters)) +
         labs(
@@ -573,22 +605,51 @@ server <- function(input, output, session) {
 
       
     } else if (input$cluster_method == "UMAP") {
-      # UMAP
-      # Make sure mat_scaled is a matrix
-      mat_scaled <- as.matrix(mat_scaled)
+      # Ensure data consistency with PCA
+      req(data_wide) # Ensure data is available
+      umap_input <- as.matrix(data_wide)  # Convert to matrix for UMAP compatibility
       
-      umap_result <- umap(mat_scaled, n_neighbors = 15, min_dist = 0.1)
+      # Check if the number of rows is less than or equal to n_neighbors
+      if (nrow(umap_input) <= 15) {
+        # Show the error message in the UI
+        output$insufficient_data_message <- renderUI({
+          tagList(
+            h3("UMAP requires the number of genes to be greater than the number of neighbors (15).",
+               style = "color: red; text-align: center; font-size: 16px;"),
+            p("Please adjust your filters or select a broader dataset to proceed.", 
+              style = "text-align: center; font-size: 14px;")
+          )
+        })
+        # Return NULL to skip plotting
+        return(NULL)
+      } else {
+        # Clear the message if data is sufficient
+        output$insufficient_data_message <- renderUI({ NULL })
+      }
+      
+      # Join gene symbols with data_wide if not already included
+      if (!"gene_symbol" %in% colnames(data_wide)) {
+        gene_info <- dbGetQuery(con, "SELECT gene_accession_id, gene_symbol FROM Genes")
+        data_wide <- data_wide %>%
+          rownames_to_column(var = "gene_accession_id") %>%
+          left_join(gene_info, by = "gene_accession_id") %>%
+          column_to_rownames(var = "gene_accession_id")
+      }
+      
+      
+      # Perform UMAP with predefined parameters
+      umap_result <- umap(umap_input, n_neighbors = 15, min_dist = 0.1)
       umap_data <- data.frame(
         UMAP1 = umap_result$layout[, 1],
         UMAP2 = umap_result$layout[, 2],
-        gene  = rownames(mat_scaled)
+        gene_symbol = data_wide$gene_symbol  # Add gene_symbol for tooltip
       )
       
-      # K-means for colouring
-      km <- kmeans(mat_scaled, centers = input$num_clusters)
-      umap_data$cluster <- factor(km$cluster)
+      # Apply k-means clustering on UMAP-transformed data
+      km <- kmeans(umap_data[, c("UMAP1", "UMAP2")], centers = input$num_clusters)
+      umap_data$cluster <- factor(km$cluster) # Add cluster assignments 
       
-      # Set dynamic graph title
+      # Set dynamic graph title based on gene subset selected
       gene_subset_label <- switch(
         input$gene_subset,
         "All genes" = "All Genes",
@@ -596,7 +657,8 @@ server <- function(input, output, session) {
         "User-specific genes" = "User-Selected Genes"
       )
       
-      p <- ggplot(umap_data, aes(x = UMAP1, y = UMAP2, color = cluster, text = paste0("Gene: ", gene, "<br>Cluster: ", cluster))) +
+      # Create the UMAP plot using ggplot2
+      p <- ggplot(umap_data, aes(x = UMAP1, y = UMAP2, color = cluster, text = paste0("Gene: ", gene_symbol, "<br>Cluster: ", cluster))) +
         geom_point(size = 3, alpha = 0.8) +
         scale_color_manual(values = rainbow(input$num_clusters)) +
         labs(
