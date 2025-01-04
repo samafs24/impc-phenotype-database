@@ -257,15 +257,14 @@ server <- function(input, output, session) {
                        FROM Analyses WHERE p_value IS NOT NULL GROUP BY gene_accession_id, parameter_id
                        ORDER BY avg_rounded_pvalue ASC;")
   
-  # Reactive PCA matrix: pivot data to wide format
+  # Transform data: rows = genes, columns = parameters, cell values = avg p-values
   pca_matrix <- reactive({
     data %>%
       pivot_wider(
         names_from = parameter_id,
-        values_from = avg_rounded_pvalue,
-        values_fill = 1 # Fill missing values with 1 (insignificant)
+        values_from = avg_rounded_pvalue
       ) %>%
-      column_to_rownames("gene_accession_id") # Set gene_accession_id as rownames
+      column_to_rownames("gene_accession_id") 
   })
   
   # Render the cluster plot
@@ -273,59 +272,79 @@ server <- function(input, output, session) {
     req(pca_matrix())  # Ensure the PCA matrix is available
     data_wide <- pca_matrix()  # This is the wide gene-by-parameter matrix
     
-    # Debugging: Print dimensions before and after filtering
-    cat("Before filtering:", dim(data_wide), "\n")
-    #print(data_wide)  # For inspecting the data (optional)
-    
     # Filter genes where no p-value is lower than 0.05
     if (input$gene_subset == "Genes with Significant Phenotypes (p<0.05)") {
       keep_rows <- apply(data_wide, 1, function(x) all(x >= 0.05, na.rm = TRUE))
       data_wide <- data_wide[keep_rows, , drop = FALSE]
     }
-    
-    # Debugging: Print dimensions before and after filtering
-    cat("After filtering:", dim(data_wide), "\n")
-    #print(data_wide)  # For inspecting the data (optional)
 
-        # Scale the data
+    # Standardization: scale the data so all features contribute equally to analysis
     mat_scaled <- scale(data_wide)
+    
+    # Query gene symbols
+    gene_info <- dbGetQuery(con, "SELECT gene_accession_id, gene_symbol FROM Genes")
     
     # Hierarchical clustering
     if (input$cluster_method == "Hierarchical") {
-      if (nrow(mat_scaled) < 2) {
-        return(ggplotly(ggplot() + 
-                                  ggtitle("Not enough data for hierarchical clustering (need >= 2 rows).") +
-                                  theme_void()))
-      }
-      
-      # Perform hierarchical clustering
+      # Perform hierarchical clustering on scaled data
       hc <- hclust(dist(mat_scaled), method = "ward.D")
-      dend <- as.dendrogram(hc) %>% hang.dendrogram(hang = 0.2)  # Adjust hanging tips
+      #    Convert hclust -> dendrogram -> apply "hang" to shorten tips
+      #    "hang" sets how far tips hang below the rest of the dendrogram.
+      #    0.1 or 0.2 often works well. Smaller => shorter vertical lines to labels.
+      # Convert clustering results to a dendrogram 
+      dend <- as.dendrogram(hc) %>%
+        hang.dendrogram(hang = 0.2)  # tweak 0.2 as desired
       
-      # Prepare data for ggplot using ggdendro
+      # Convert the dendrogram into a ggplot-compatible structure
       dend_data <- dendro_data(dend, type = "rectangle")
-      branch_colors <- sample(colors(), nrow(dend_data$segments), replace = TRUE)  # Random branch colors
       
-      # Create dendrogram plot
+      str(dend_data$labels)
+      
+      set.seed(123)  # For reproducibility
+
+      # Generate random colors for the branches in the dendrogram
+      branch_colors <- sample(colors(), nrow(dend_data$segments), replace = TRUE)  # Random branch colors
+  
+
+      # Create dendrogram plot using ggplot
       p <- ggplot() +
-        geom_segment(data = dend_data$segments,aes(x = x, y = y, xend = xend, yend = yend),color = branch_colors,size = 0.8) +
-        geom_text(data = dend_data$labels %>%mutate(y = y - max(dend_data$segments$y) * 0.1), aes(x = x, y = y, label = label),size = 2.5,hjust = 0.5,color = "black"
+        # Add dendrogram branches as line segments
+        geom_segment(
+          data = dend_data$segments,
+          aes(x = x, y = y, xend = xend, yend = yend),
+          color = branch_colors,  # Assign random branch colors
+          size = 0.8              # Set line thickness for branches
         ) +
+        
+        # Add gene labels to the dendrogram
+        geom_text(
+          data = dend_data$labels %>%
+            mutate(y = y - max(dend_data$segments$y) * 0.2),  # Shift labels further down
+          aes(x = x, y = y, label = label),
+          size = 3,
+          hjust = 0.5,  # Center the text horizontally
+          color = "black"
+        ) +
+        
+        # Flip coordinates to display horizontally
         coord_flip() +
+        
+        # Reverse y-axis to make clusters grow upward
         scale_y_reverse(expand = c(0.2, 0)) +
-        labs(
-          title = "Hierarchical Clustering of Knockout Mouse Genes",
-          x = "Genes of Knockout Mouse",
-          y = "Cluster Distance"
-        ) +
         theme_minimal(base_size = 10) +
+        # Add plot title and axis labels
+        labs(
+          title = paste(input$cluster_method, "Clustering of", input$gene_subset),
+          x = "Genes of Knockout Mouse",   
+          y = "Cluster Distance"           # y-axis label
+        ) +
         theme(
-          plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
-          axis.text.y = element_text(size = 8),
-          axis.ticks.y = element_blank(),
-          axis.title.y = element_blank(),
-          panel.grid.major = element_line(color = "grey90"),
-          panel.grid.minor = element_blank()
+          plot.title = element_text(size = 16, face = "bold", hjust = 0.5),  
+          axis.text.y = element_text(size = 8),                             
+          axis.ticks.y = element_blank(),                                   # Remove y-axis ticks
+          axis.title.y = element_blank(),                                   # Remove y-axis title
+          panel.grid.major = element_line(color = "grey90"),                # Light grid lines
+          panel.grid.minor = element_blank()                                # Remove minor grid lines
         )
       return(ggplotly(p))
     }
