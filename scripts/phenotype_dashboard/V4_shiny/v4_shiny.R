@@ -9,6 +9,7 @@ library(RMySQL)
 library(stringr)
 library(factoextra)
 library(umap)
+library(tidyverse)
 
 # Define UI
 ui <- fluidPage(
@@ -103,7 +104,7 @@ server <- function(input, output, session) {
     host = "localhost",
     port = 3306,
     user = "root",
-    password = "Llama123@"
+    password = "KCL2024!"
   )
   
   onStop(function() {
