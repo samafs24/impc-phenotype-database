@@ -94,9 +94,9 @@ server <- function(input, output, session) {
     updateSelectizeInput(session, "user_genes", choices = all_genes$gene_symbol, server = TRUE)
   })
   
-  # Visualizations
+  ## Visualizations
   
-  # Visualization 1: Statistical Scores for Selected Knockout Mouse
+  # Visualization 1: show phenotypes for selected genotype 
   # Render the UI container based on the selected plot type
   output$genotype_plot_container <- renderUI({
     if (input$genotype_plot_type == "All Phenotypes") {
@@ -130,18 +130,11 @@ server <- function(input, output, session) {
       base_query <- paste0(base_query, " AND A.mouse_life_stage = '", input$genotype_life_stage, "'")
     }
     
-    # Finalize query with GROUP BY and ORDER BY clauses
+    # Finalize query 
     final_query <- paste0(base_query, "GROUP BY P.parameter_id, P.parameter_name
                           ORDER BY avg_p_value ASC;")
-    cat(final_query)
     
-    data <- tryCatch(
-      dbGetQuery(con, final_query),
-      error = function(e) {
-        message("Error fetching data: ", e$message)
-        return(NULL)
-      }
-    )
+    data <- dbGetQuery(con, final_query)
     
     output$no_data_message <- renderUI({
       if (is.null(data) || nrow(data) == 0) {
@@ -166,33 +159,33 @@ server <- function(input, output, session) {
         data <- data[1:min(25, nrow(data)), ]
       }
       
-      p <- ggplot(data, aes(
-        x = reorder(order_var, avg_p_value), # Order the data based on the order_var
-        y = -log2(avg_p_value), # Transform the p-value for intuitive visualization
-        fill = Threshold, 
-        text = paste0("Parameter Name: ", parameter_name, "<br>P-value: ", signif(avg_p_value, digits = 3), "<br>Threshold: ", Threshold))) + # Add labels when hover 
-        geom_bar(stat = "identity", width = 0.6, show.legend = TRUE) +
-        scale_x_discrete(labels = data$parameter_name) +  # Display only parameter_name
-        scale_fill_manual(values = c("Significant" = "palegreen3", "Not Significant" = "indianred3")) + 
-        labs(
-          title = paste(input$genotype_plot_type, "for", input$genotype_mouse),
-          x = "Phenotype",
-          y = "Significance (-log2(p-value))"
-        ) +
-        theme_minimal() +
-        theme(
-          axis.text.x = element_text(angle = 45, hjust = 0, vjust = 1, size = 10, face = "bold"),
-          axis.text.y = element_text(size = 10),
-          axis.title.x = element_text(size = 12, face = "bold"),  
-          axis.title.y = element_text(size = 12, face = "bold"),  
-          plot.title = element_text(size = 15, face = "bold", hjust = 0.5)
-        ) +
-        geom_hline(yintercept = -log2(input$genotype_threshold), linetype = "dashed", color = "black") # Add threshold line 
-      
-      ggplotly(p, tooltip = "text")
+    # 
+    p <- ggplot(data, aes(
+      x = reorder(order_var, avg_p_value), # Order the data based on the order_var
+      y = -log2(avg_p_value), # Transform the p-value for intuitive visualization
+      fill = Threshold, 
+      text = paste0("Parameter Name: ", parameter_name, "<br>P-value: ", signif(avg_p_value, digits = 3), "<br>Threshold: ", Threshold))) + # Add labels when hover 
+      geom_bar(stat = "identity", width = 0.6, show.legend = TRUE) +
+      scale_x_discrete(labels = data$parameter_name) +  # Display only parameter_name
+      scale_fill_manual(values = c("Significant" = "palegreen3", "Not Significant" = "indianred3")) + 
+      labs(
+        title = paste(input$genotype_plot_type, "for", input$genotype_mouse),
+        x = "Phenotype",
+        y = "Significance (-log2(p-value))"
+      ) +
+      theme_minimal() +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 0, vjust = 1, size = 10, face = "bold"),
+        axis.text.y = element_text(size = 10),
+        axis.title.x = element_text(size = 12, face = "bold"),  
+        axis.title.y = element_text(size = 12, face = "bold"),  
+        plot.title = element_text(size = 15, face = "bold", hjust = 0.5)
+      ) +
+      geom_hline(yintercept = -log2(input$genotype_threshold), linetype = "dashed", color = "black") # Add threshold line 
+    ggplotly(p, tooltip = "text")
     })
   
-  # Visualization 2: 
+  # Visualization 2: show genotypes for selected phenotype 
   # Render the UI container based on the selected plot type
   output$phenotype_plot_container <- renderUI({
     if (input$phenotype_plot_type == "All Genotypes") {
@@ -218,16 +211,8 @@ server <- function(input, output, session) {
                      GROUP BY G.gene_symbol ORDER BY avg_p_value ASC;", 
                      input$phenotype, input$phenotype_group)
     
-    cat(query)
-    
     # Fetch data from the database
-    data <- tryCatch(
-      dbGetQuery(con, query),
-      error = function(e) {
-        message("Error fetching data: ", e$message)
-        return(NULL)
-      }
-    )
+    data <- dbGetQuery(con, query)
     
     # If no data is available, display a message
     output$no_data_message <- renderUI({
@@ -252,9 +237,9 @@ server <- function(input, output, session) {
       data <- data[1:min(25, nrow(data)), ]
     }
     
-    p <- ggplot(data, aes(x = reorder(gene_symbol, avg_p_value), y = -log10(avg_p_value), color = Threshold, text = paste("p-value:", avg_p_value, "<br>Gene:", gene_symbol))) +
-      geom_point(size = 3.5) +
-      scale_color_manual(values = c("Significant" = "palegreen3", "Not Significant" = "indianred3")) +
+    p <- ggplot(data, aes(x = reorder(gene_symbol, avg_p_value), y = -log10(avg_p_value), fill = Threshold, text = paste("p-value:", avg_p_value, "<br>Gene:", gene_symbol))) +
+      geom_bar(stat = "identity", width = 0.6, show.legend = TRUE) +
+      scale_fill_manual(values = c("Significant" = "palegreen3", "Not Significant" = "indianred3")) +
       labs(
         title = paste(input$phenotype_plot_type, "for", input$phenotype),
         subtitle = paste("Showing genes with p-value <= ", input$phenotype_threshold),
