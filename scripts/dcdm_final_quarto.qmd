@@ -179,6 +179,8 @@ check_files <- function(file_path) {
 We now apply this function to all data files. This process will generate an `updated_data` folder containing the cleaned files and a log file in the main directory.
 
 ```{r}
+#| eval: false
+
 # Process CSV files in the raw data directory and validate them
 validation_results <- dir_ls(path = raw_data_dir, glob = "*.csv") %>%
   map_dfr(check_files)  # Apply check_files to each file and collect results
@@ -231,6 +233,8 @@ combine_files <- function(file_path) {
 The `combine_files` function is then applied to each file in the directory, combining their contents into a single table:
 
 ```{r}
+#| eval: false
+
 # Combine all data files into a single table
 analysis <- dir_ls(path = updated_data_dir, glob = "*.csv") %>%  # List all CSV files in the directory
   map_dfr(combine_files) # Apply the combine_files function to each file and combine results
@@ -1108,20 +1112,19 @@ group_patterns <- tibble(
   group_name = c(
     "weight", "images", "brain", "cardiovascular", "eye", 
     "metabolic", "morphology", "audiology", 
-    "reproductive", "toxicology", "experimental_identifiers"
+    "immunology", "Behavior"
   ),
   regex_pattern = c(
     "weight|density|fat|lean|BMI|BMC|mass|composition|bone|length|adipose|lipid|body size|size|growth|skeletal|area|volume",
     "image|screenshot|microscope|pdf|lacz|waveform|ogram|resolution|visual|pixel|scan|photo|imaging|bit depth|microscopy|contrast",
     "brain|cortex|hippo|thalamus|amygdala|lobe|cere|spinal|pituitary|striatum|hypothal|neural|neuronal|pons|medulla|ganglion|nerve|enceph|ventricle|choroid",
-    "heart|cardiac|vascular|blood|vein|aort|arter|HR|stroke|ejection|QT|circulation|pulse|pressure|rate|systolic|diastolic|respiration|ECG|cardio|valve",
-    "eye|retina|cornea|lens|eyelid|iris|optic|ocular|vision|acuity|photoreceptor|brightness|scheimpflug|nuclear|macula|pupil|color|refraction|sclera|vitreous",
-    "glucose|insulin|cholesterol|lipid|fasting|diet|energy|metabolism|metabolic|AUC|glycemic|resistance|glucagon|carbohydrate|diabetes|calories|homeostasis",
-    "morphology|shape|size|growth|length|hypoplasia|syndactyly|microcephaly|anatomy|limb|edema|facial|cleft|dysmorphic|developmental|pattern|CRL|development|blebs",
+    "heart|cardiac|vascular|blood|vein|aort|arter|HR|stroke|ejection|QT|circulation|pulse|pressure|rate|systolic|diastolic|respiration|respiratory|PR|pulse|ECG|cardio|valve|LVPWs|platelet|",
+    "eye|retina|cornea|lens|eyelid|iris|optic|ocular|vision|acuity|photoreceptor|brightness|scheimpflug|nuclear|macula|pupil|color|refraction|sclera|vitreous|retinal|lens|",
+    "glucose|insulin|cholesterol|lipid|triglycerides|fasting|diet|energy|metabolism|metabolic|AUC|glycemic|resistance|glucagon|carbohydrate|diabetes|protein|fat|urea|sodium|potassium|phosphorus|calories|homeostasis|hdl|ldl",
+    "morphology|shape|size|growth|length|hypoplasia|syndactyly|microcephaly|anatomy|limb|edema|facial|cleft|dysmorphic|developmental|pattern|CRL|development|blebs|appearance|structure|pattern|thickness|pelvis|hair|color|coat",
     "ABR|hearing|audiometry|waveform|tone|decibel|audiogram|stimulus|frequency|click|response|threshold|sound|ear",
-    "reproductive|fertility|embryo|ovary|sperm|testis|testicular|gestation|ovulation|pregnancy|CRL|zygote|oocyte|gonad",
-    "anesthetic|drug|agent|dosage|administration|route|exposure|chemical|toxic|compound|biomarkers|toxicology|medication",
-    "experimenter|ID|lot|kit|manufacturer|model|calibration|SOP|genotype|mutation|allele|strain|batch|control|sample|label|protocol|method"
+    "Lymphocyte|Neutrophil|NKT|Treg|Leukocyte|Basophil|Platelet|Spleen|Blood|Cell|Immune|Differential|White|Hemoglobin|Eosinophil|Monocyte",
+    "behavior|locomotor|percentage|movement|time|center|speed|distance|resting|stimuli|startle|unexpected|vocalization|entries|rears|tremor|tongue|curl|vibrissae|aggression|pallor|turning|activity"
   )
 )
 ```
@@ -1133,8 +1136,11 @@ The `groupings_table` assigns a unique ascending `group_id` to each group name f
 ```{r}
 groupings_table <- group_patterns %>%
   mutate(group_id = row_number()) %>%  # Assign unique ascending IDs
-  select(group_id, group_name) %>%        # Retain only group_id and group_name
-  distinct()
+  select(group_id, group_name) %>% 
+  mutate(
+    group_name = str_to_title(group_name)
+  ) %>%      
+  distinct()  # Retain only group_id and group_name
 
 write_csv(groupings_table, paste0(rootDir, "data/collated/Groupings.csv"), quote = "all")
 ```
@@ -1784,7 +1790,6 @@ group_patterns <- tibble(
     "ABR|hearing|audiometry|waveform|tone|decibel|audiogram|stimulus|frequency|click|response|threshold|sound|ear",
     "Lymphocyte|Neutrophil|NKT|Treg|Leukocyte|Basophil|Platelet|Spleen|Blood|Cell|Immune|Differential|White|Hemoglobin|Eosinophil|Monocyte",
     "behavior|locomotor|percentage|movement|time|center|speed|distance|resting|stimuli|startle|unexpected|vocalization|entries|rears|tremor|tongue|curl|vibrissae|aggression|pallor|turning|activity"
- 
   )
 )
 ```
