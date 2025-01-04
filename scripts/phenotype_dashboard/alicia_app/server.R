@@ -257,6 +257,8 @@ server <- function(input, output, session) {
                        FROM Analyses WHERE p_value IS NOT NULL GROUP BY gene_accession_id, parameter_id
                        ORDER BY avg_rounded_pvalue ASC;")
   
+  gene_symbols <- dbGetQuery(con, "Select gene_symbol, gene_accession_id FROM Genes;")
+  
   # Transform data: rows = genes, columns = parameters, cell values = avg p-values
   pca_matrix <- reactive({
     data %>%
@@ -267,9 +269,9 @@ server <- function(input, output, session) {
       column_to_rownames("gene_accession_id") 
   })
   
-  # Render the cluster plot
+  # Render the cluster plots
   output$clustering_tab <- renderPlotly({
-    req(pca_matrix())  # Ensure the PCA matrix is available
+    req(pca_matrix(), gene_symbols)  # Ensure the PCA matrix is available
     data_wide <- pca_matrix()  # This is the wide gene-by-parameter matrix
     
     # Filter genes where no p-value is lower than 0.05
@@ -280,9 +282,6 @@ server <- function(input, output, session) {
 
     # Standardization: scale the data so all features contribute equally to analysis
     mat_scaled <- scale(data_wide)
-    
-    # Query gene symbols
-    gene_info <- dbGetQuery(con, "SELECT gene_accession_id, gene_symbol FROM Genes")
     
     # Hierarchical clustering
     if (input$cluster_method == "Hierarchical") {
@@ -299,6 +298,12 @@ server <- function(input, output, session) {
       dend_data <- dendro_data(dend, type = "rectangle")
       
       str(dend_data$labels)
+      
+      
+      # Add gene symbols to dendrogram labels
+      dend_data$labels <- dend_data$labels %>%
+        left_join(gene_symbols, by = c("label" = "gene_accession_id")) %>%  # Merge gene symbols
+        mutate(label = gene_symbol)  # Replace gene IDs with gene symbols
       
       set.seed(123)  # For reproducibility
 
@@ -335,14 +340,12 @@ server <- function(input, output, session) {
         # Add plot title and axis labels
         labs(
           title = paste(input$cluster_method, "Clustering of", input$gene_subset),
-          x = "Genes of Knockout Mouse",   
-          y = "Cluster Distance"           # y-axis label
+          x = "Phenotypic Similarity",
+          y = "Genes"
         ) +
         theme(
           plot.title = element_text(size = 16, face = "bold", hjust = 0.5),  
           axis.text.y = element_text(size = 8),                             
-          axis.ticks.y = element_blank(),                                   # Remove y-axis ticks
-          axis.title.y = element_blank(),                                   # Remove y-axis title
           panel.grid.major = element_line(color = "grey90"),                # Light grid lines
           panel.grid.minor = element_blank()                                # Remove minor grid lines
         )
@@ -350,31 +353,28 @@ server <- function(input, output, session) {
     }
     
     # PCA clustering
+    # PCA clustering
     else if (input$cluster_method == "PCA") {
-      if (nrow(data_wide) < 2) {
-        output$insufficient_data_message <- renderUI({
-          tagList(
-            h3("PCA requires at least 2 genes to perform the analysis.",
-               style = "color: red; text-align: center; font-size: 16px;"),
-            p("Please adjust your filters or select a broader dataset to proceed.", 
-              style = "text-align: center; font-size: 14px;")
-          )
-        })
-        return(NULL)
-      }
-      
       numeric_data <- data_wide[, sapply(data_wide, is.numeric)]  # Ensure numeric columns
       pca_result <- prcomp(numeric_data, scale. = TRUE)  # Run PCA
+      
+      # Create PCA data frame
       pca_data <- as.data.frame(pca_result$x[, 1:2])  # Use first two principal components
-      pca_data$gene_symbol <- rownames(data_wide)  # Add gene_symbol for tooltips
+      pca_data$gene_accession_id <- rownames(data_wide)  # Add gene_accession_id
+      
+      # Merge gene_symbol
+      pca_data <- pca_data %>%
+        left_join(gene_symbols, by = "gene_accession_id")  # Add gene_symbol column
       
       # Perform k-means clustering
-      km <- kmeans(pca_data[, 1:2], centers = input$num_clusters)
+      km <- kmeans(pca_data[, c("PC1", "PC2")], centers = input$num_clusters)
       pca_data$cluster <- factor(km$cluster)
       
       # Create PCA plot
       plot_title <- paste("PCA Clustering of", input$gene_subset)
-      p <- ggplot(pca_data, aes(x = PC1, y = PC2, color = cluster, text = paste0("Gene: ", gene_symbol, "<br>Cluster: ", cluster))) +
+      p <- ggplot(pca_data, aes(
+        x = PC1, y = PC2, color = cluster, 
+        text = paste0("Gene: ", gene_symbol, "<br>Cluster: ", cluster))) +
         geom_point(size = 3, alpha = 0.8) +
         scale_color_manual(values = rainbow(input$num_clusters)) +
         labs(
@@ -397,25 +397,18 @@ server <- function(input, output, session) {
     }
     
     # UMAP clustering
+    # UMAP clustering
     else if (input$cluster_method == "UMAP") {
-      if (nrow(data_wide) <= 15) {
-        output$insufficient_data_message <- renderUI({
-          tagList(
-            h3("UMAP requires the number of genes to be greater than the number of neighbors (15).",
-               style = "color: red; text-align: center; font-size: 16px;"),
-            p("Please adjust your filters or select a broader dataset to proceed.", 
-              style = "text-align: center; font-size: 14px;")
-          )
-        })
-        return(NULL)
-      }
-      
       umap_result <- umap(as.matrix(data_wide), n_neighbors = 15, min_dist = 0.1)
       umap_data <- data.frame(
         UMAP1 = umap_result$layout[, 1],
         UMAP2 = umap_result$layout[, 2],
-        gene_symbol = rownames(data_wide)
+        gene_accession_id = rownames(data_wide)  # Add gene_accession_id
       )
+      
+      # Merge gene_symbol
+      umap_data <- umap_data %>%
+        left_join(gene_symbols, by = "gene_accession_id")  # Add gene_symbol column
       
       # Perform k-means clustering
       km <- kmeans(umap_data[, c("UMAP1", "UMAP2")], centers = input$num_clusters)
@@ -423,7 +416,9 @@ server <- function(input, output, session) {
       
       # Create UMAP plot
       plot_title <- paste("UMAP Clustering of", input$gene_subset)
-      p <- ggplot(umap_data, aes(x = UMAP1, y = UMAP2, color = cluster, text = paste0("Gene: ", gene_symbol, "<br>Cluster: ", cluster))) +
+      p <- ggplot(umap_data, aes(
+        x = UMAP1, y = UMAP2, color = cluster, 
+        text = paste0("Gene: ", gene_symbol, "<br>Cluster: ", cluster))) +
         geom_point(size = 3, alpha = 0.8) +
         scale_color_manual(values = rainbow(input$num_clusters)) +
         labs(
@@ -443,6 +438,5 @@ server <- function(input, output, session) {
       return(ggplotly(p, tooltip = "text"))
     }
   })
-  
 }
 

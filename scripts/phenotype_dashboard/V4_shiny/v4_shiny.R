@@ -358,6 +358,7 @@ server <- function(input, output, session) {
       SELECT 
         gene_accession_id,
         parameter_id,
+        gene_symbol
         ROUND(AVG(p_value), 6) AS avg_rounded_pvalue
       FROM Analyses
       WHERE p_value IS NOT NULL
