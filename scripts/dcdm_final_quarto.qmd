@@ -1107,7 +1107,6 @@ The goal is to group parameters by naming or phenotype test similarity, reducing
 The `group_patterns` table defines group names (e.g., "weight," "images," "brain") with regex patterns to match parameter names, forming the basis for identifying and categorizing parameters.
 
 ```{r}
-
 group_patterns <- tibble(
   group_name = c(
     "weight", "images", "brain", "cardiovascular", "eye", 
@@ -1118,15 +1117,19 @@ group_patterns <- tibble(
     "weight|density|fat|lean|BMI|BMC|mass|composition|bone|length|adipose|lipid|body size|size|growth|skeletal|area|volume",
     "image|screenshot|microscope|pdf|lacz|waveform|ogram|resolution|visual|pixel|scan|photo|imaging|bit depth|microscopy|contrast",
     "brain|cortex|hippo|thalamus|amygdala|lobe|cere|spinal|pituitary|striatum|hypothal|neural|neuronal|pons|medulla|ganglion|nerve|enceph|ventricle|choroid",
-    "heart|cardiac|vascular|blood|vein|aort|arter|HR|stroke|ejection|QT|circulation|pulse|pressure|rate|systolic|diastolic|respiration|respiratory|PR|pulse|ECG|cardio|valve|LVPWs|platelet|",
-    "eye|retina|cornea|lens|eyelid|iris|optic|ocular|vision|acuity|photoreceptor|brightness|scheimpflug|nuclear|macula|pupil|color|refraction|sclera|vitreous|retinal|lens|",
+    "heart|cardiac|vascular|blood|vein|aort|arter|HR|stroke|ejection|QT|circulation|pulse|pressure|rate|systolic|diastolic|respiration|respiratory|PR|pulse|ECG|cardio|valve|LVPWs|platelet",
+    "eye|retina|cornea|lens|eyelid|iris|optic|ocular|vision|acuity|photoreceptor|brightness|scheimpflug|nuclear|macula|pupil|color|refraction|sclera|vitreous|retinal|lens",
     "glucose|insulin|cholesterol|lipid|triglycerides|fasting|diet|energy|metabolism|metabolic|AUC|glycemic|resistance|glucagon|carbohydrate|diabetes|protein|fat|urea|sodium|potassium|phosphorus|calories|homeostasis|hdl|ldl",
     "morphology|shape|size|growth|length|hypoplasia|syndactyly|microcephaly|anatomy|limb|edema|facial|cleft|dysmorphic|developmental|pattern|CRL|development|blebs|appearance|structure|pattern|thickness|pelvis|hair|color|coat",
     "ABR|hearing|audiometry|waveform|tone|decibel|audiogram|stimulus|frequency|click|response|threshold|sound|ear",
     "Lymphocyte|Neutrophil|NKT|Treg|Leukocyte|Basophil|Platelet|Spleen|Blood|Cell|Immune|Differential|White|Hemoglobin|Eosinophil|Monocyte",
     "behavior|locomotor|percentage|movement|time|center|speed|distance|resting|stimuli|startle|unexpected|vocalization|entries|rears|tremor|tongue|curl|vibrissae|aggression|pallor|turning|activity"
   )
-)
+) %>%
+  mutate(
+    regex_pattern = str_to_lower(regex_pattern),       # Convert regex to lowercase
+    group_name = str_to_title(group_name)             # Convert group name to title case
+  )
 ```
 
 ### Create Groupings Table
@@ -1152,11 +1155,9 @@ The `parameter` table is processed to match each `parameter_id` with groups usin
 ```{r}
 groupXparameter_table <- parameter %>%
   select(parameter_id, parameter_name) %>%                # Select relevant columns
-  mutate(group_name = map(parameter_name, ~               # Match parameter names to group patterns
-    group_patterns$group_name[
-      str_detect(.x, regex(group_patterns$regex_pattern, ignore_case = TRUE))
-    ])
-  ) %>%
+  mutate(group_name = map(parameter_name, ~group_patterns %>%
+                            filter(str_detect(.x, regex(regex_pattern, ignore_case = TRUE))) %>%
+                            pull(group_name)))%>%
   unnest_longer(group_name) %>%                           # Expand rows for each matched group
   left_join(groupings_table, by = "group_name") %>%       # Add group_id from groupings_table
   select(parameter_id, group_id) %>%                      # Retain parameter_id and group_id columns
@@ -1290,7 +1291,7 @@ INTO TABLE Groupings
 FIELDS TERMINATED BY ',' 
 OPTIONALLY ENCLOSED BY '"' 
 IGNORE 1 LINES;
-# Records: 11  Deleted: 0  Skipped: 0  Warnings: 0
+# Records: 10  Deleted: 0  Skipped: 0  Warnings: 0
 
 LOAD DATA LOCAL INFILE '/Users/aliciahobdell/Desktop/data_cleaning/DCDM_group3/data/collated/Parameters.csv'
 INTO TABLE Parameters
@@ -1327,7 +1328,7 @@ INTO TABLE ParameterGroupings
 FIELDS TERMINATED BY ','               
 OPTIONALLY ENCLOSED BY '"'                   
 IGNORE 1 LINES;  
-# Records: 2159  Deleted: 0  Skipped: 0  Warnings: 0
+# Records: 2340  Deleted: 0  Skipped: 0  Warnings: 0
 ```
 
 ##### A total of 143 parameters corresponding to 83,712 analysis files have non-IMPC identifiers, meaning they are not linked to any procedure. This violates the foreign key constraints in the database, resulting in the following issues: {style="color: red"}
