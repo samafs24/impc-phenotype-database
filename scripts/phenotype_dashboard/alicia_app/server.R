@@ -61,7 +61,7 @@ server <- function(input, output, session) {
   })
   
   observe({
-    # Populate phenotypes based on the selected group
+    # Populate phenotype based on the selected group
     req(input$phenotype_group)
     phenotype_data <- dbGetQuery(con, sprintf("
       SELECT P.parameter_name, COUNT(A.p_value) AS data_count
@@ -73,6 +73,7 @@ server <- function(input, output, session) {
       GROUP BY P.parameter_name ORDER BY P.parameter_name ASC;",
                                               input$phenotype_group))
     
+    # Check if this is needed, or if the error message with "please select other parameters" is not enought;
     available_data <- phenotype_data %>%
       filter(data_count > 0) %>%
       pull(parameter_name)
@@ -88,13 +89,14 @@ server <- function(input, output, session) {
   
   # Dynamically populate dropdowns for Figure 3
   observe({
-    # Populate gene options for user-specific clustering
+    # Populate gene options for gene-specific clustering
     all_genes <- dbGetQuery(con, "SELECT DISTINCT gene_symbol FROM Genes ORDER BY gene_symbol ASC;")
     updateSelectizeInput(session, "user_genes", choices = all_genes$gene_symbol, server = TRUE)
   })
   
-  # Visualization 1: Statistical Scores for Selected Knockout Mouse
+  # Visualizations
   
+  # Visualization 1: Statistical Scores for Selected Knockout Mouse
   # Render the UI container based on the selected plot type
   output$plot_container <- renderUI({
     if (input$genotype_plot_type == "All Phenotypes") {
@@ -107,22 +109,20 @@ server <- function(input, output, session) {
     }
   })
   
-  # Render the plot for Figure 1: Statistical Scores for Selected Knockout Mouse
+  # Render the bar plot 
   output$mouse_genotype_plot <- renderPlotly({
     req(input$genotype_mouse)
     
     base_query <- sprintf("
-    SELECT A.p_value, A.parameter_id, P.parameter_name 
+    SELECT P.parameter_name, P.parameter_id, AVG(A.p_value) AS avg_p_value
     FROM Analyses A
     JOIN Parameters P ON A.parameter_id = P.parameter_id
     WHERE A.gene_accession_id IN (
-      SELECT gene_accession_id FROM Genes WHERE gene_symbol = '%s'
-    )
+    SELECT gene_accession_id FROM Genes WHERE gene_symbol = '%s')
     AND A.p_value IS NOT NULL
-    AND A.p_value > 0
-    AND P.parameter_name IS NOT NULL",
-                          input$genotype_mouse)
+                          AND P.parameter_name != 'NA'", input$genotype_mouse)
     
+    # Add conditions for mouse strain and life stage if applicable
     if (input$genotype_mouse_strain != "All") {
       base_query <- paste0(base_query, " AND A.mouse_strain = '", input$genotype_mouse_strain, "'")
     }
@@ -130,7 +130,10 @@ server <- function(input, output, session) {
       base_query <- paste0(base_query, " AND A.mouse_life_stage = '", input$genotype_life_stage, "'")
     }
     
-    final_query <- paste0(base_query, " ORDER BY A.p_value ASC;")
+    # Finalize query with GROUP BY and ORDER BY clauses
+    final_query <- paste0(base_query, "GROUP BY P.parameter_id, P.parameter_name
+                          ORDER BY avg_p_value ASC;")
+    cat(final_query)
     
     data <- tryCatch(
       dbGetQuery(con, final_query),
@@ -151,39 +154,30 @@ server <- function(input, output, session) {
       }
     })
     
-      data <- data %>%
-        filter(!is.na(parameter_name) & tolower(parameter_name) != "na") %>%
-        group_by(parameter_id) %>%
-        summarize(
-          parameter_name = str_to_title(first(parameter_name)),
-          p_value = mean(p_value),
-          Threshold = ifelse(any(p_value < input$genotype_threshold), "Significant", "Not Significant")
-        ) %>% 
-        ungroup() %>%
-        arrange(p_value)
-      
-      if (input$genotype_plot_type == "Top 25 Phenotypes") {
+    data <- data %>%
+      filter(!is.na(parameter_name) & tolower(parameter_name) != "na") %>% # Remove rows with missing or invalid parameter names
+      mutate(
+        parameter_name = str_to_title(parameter_name), # Convert parameter names to title case
+        order_var = paste0(parameter_name, "_", parameter_id), # Create a variable that differentiates parameters with the same name for ordering in the graph (based on ID)
+        Threshold = ifelse(avg_p_value < input$genotype_threshold, "Significant", "Not Significant") # Determine significance
+      )
+    
+      if (input$genotype_plot_type == "Top 25 Phenotypes") { # Subset the data for top 25 genes
         data <- data[1:min(25, nrow(data)), ]
       }
       
       p <- ggplot(data, aes(
-        x = reorder(parameter_name, p_value), 
-        y = -log2(p_value), 
+        x = reorder(order_var, avg_p_value), # Order the data based on the order_var
+        y = -log2(avg_p_value), # Transform the p-value for intuitive visualization
         fill = Threshold, 
-        text = paste0(
-          "Parameter Name: ", parameter_name, "<br>",
-          "P-value: ", signif(p_value, digits = 3), "<br>",
-          "Threshold: ", Threshold
-        )
-      )) +
-        geom_bar(stat = "identity", width = 0.6,  # Set consistent bin width
-          show.legend = TRUE
-        ) +
+        text = paste0("Parameter Name: ", parameter_name, "<br>P-value: ", signif(avg_p_value, digits = 3), "<br>Threshold: ", Threshold))) + # Add labels when hover 
+        geom_bar(stat = "identity", width = 0.6, show.legend = TRUE) +
+        scale_x_discrete(labels = data$parameter_name) +  # Display only parameter_name
         scale_fill_manual(values = c("Significant" = "palegreen3", "Not Significant" = "indianred3")) + 
         labs(
           title = paste(input$genotype_plot_type, "for", input$genotype_mouse),
-          x = "Knockout Mouse Phenotype",
-          y = "Phenotype Significance (-log2(p-value))"
+          x = "Phenotype",
+          y = "Significance (-log2(p-value))"
         ) +
         theme_minimal() +
         theme(
