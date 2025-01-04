@@ -267,18 +267,27 @@ server <- function(input, output, session) {
       ) %>%
       column_to_rownames("gene_accession_id") # Set gene_accession_id as rownames
   })
+  
   # Render the cluster plot
   output$clustering_tab <- renderPlotly({
     req(pca_matrix())  # Ensure the PCA matrix is available
     data_wide <- pca_matrix()  # This is the wide gene-by-parameter matrix
     
-    # Filter genes based on the selected subset
-    if (input$gene_subset == "Genes with significant phenotypes (p<0.05)") {
-      keep_rows <- apply(data_wide, 1, function(x) any(x < 0.05, na.rm = TRUE))
+    # Debugging: Print dimensions before and after filtering
+    cat("Before filtering:", dim(data_wide), "\n")
+    #print(data_wide)  # For inspecting the data (optional)
+    
+    # Filter genes where no p-value is lower than 0.05
+    if (input$gene_subset == "Genes with Significant Phenotypes (p<0.05)") {
+      keep_rows <- apply(data_wide, 1, function(x) all(x >= 0.05, na.rm = TRUE))
       data_wide <- data_wide[keep_rows, , drop = FALSE]
     }
     
-    # Scale the data
+    # Debugging: Print dimensions before and after filtering
+    cat("After filtering:", dim(data_wide), "\n")
+    #print(data_wide)  # For inspecting the data (optional)
+
+        # Scale the data
     mat_scaled <- scale(data_wide)
     
     # Hierarchical clustering
@@ -294,24 +303,13 @@ server <- function(input, output, session) {
       dend <- as.dendrogram(hc) %>% hang.dendrogram(hang = 0.2)  # Adjust hanging tips
       
       # Prepare data for ggplot using ggdendro
-      dend_data <- ggdendro::dendro_data(dend, type = "rectangle")
+      dend_data <- dendro_data(dend, type = "rectangle")
       branch_colors <- sample(colors(), nrow(dend_data$segments), replace = TRUE)  # Random branch colors
       
       # Create dendrogram plot
       p <- ggplot() +
-        geom_segment(
-          data = dend_data$segments,
-          aes(x = x, y = y, xend = xend, yend = yend),
-          color = branch_colors,
-          size = 0.8
-        ) +
-        geom_text(
-          data = dend_data$labels %>%
-            mutate(y = y - max(dend_data$segments$y) * 0.1),
-          aes(x = x, y = y, label = label),
-          size = 2.5,
-          hjust = 0.5,
-          color = "black"
+        geom_segment(data = dend_data$segments,aes(x = x, y = y, xend = xend, yend = yend),color = branch_colors,size = 0.8) +
+        geom_text(data = dend_data$labels %>%mutate(y = y - max(dend_data$segments$y) * 0.1), aes(x = x, y = y, label = label),size = 2.5,hjust = 0.5,color = "black"
         ) +
         coord_flip() +
         scale_y_reverse(expand = c(0.2, 0)) +
