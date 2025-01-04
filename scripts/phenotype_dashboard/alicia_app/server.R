@@ -1,9 +1,10 @@
 # Install necessary packages if not already installed
-# install.packages(c("shiny", "plotly", "cluster", "reshape2", "DBI", "RMySQL", "factoextra", "umap", "dendextend", "ggdendro"))
+# install.packages(c("shiny", "plotly", "tidyverse", "cluster", "reshape2", "DBI", "RMySQL", "factoextra", "umap", "dendextend", "ggdendro"))
 
 # Load libraries
 library(shiny)
 library(plotly)
+library(tidyverse)
 library(cluster)
 library(reshape2)
 library(DBI)
@@ -179,7 +180,7 @@ server <- function(input, output, session) {
   output$phenotype_plot_container <- renderUI({
     if (input$phenotype_plot_type == "All Genotypes") {
       div(
-        style = "overflow-x: auto; overflow-y: hidden; height: 720px;",
+        style = "overflow-x: auto; overflow-y: hidden; height: 550px;",
         plotlyOutput("mouse_phenotype_plot", width = "5000px", height = "100%")
       )
     } else {
@@ -238,4 +239,193 @@ server <- function(input, output, session) {
     ggplotly(p, tooltip = "text")
   })
   
-  }
+  #Visualisation 3: Clustering of Genes based on Similarity of Parameter Score 
+  # Render the UI container based on the selected plot type
+  output$clustering_plot_container <- renderUI({
+    if (input$cluster_method == "Hierarchical") {
+      div(
+        style = "overflow-x: hidden; overflow-y: auto; height: 700px;",  # Enable vertical scrolling
+        plotlyOutput("clustering_tab", width = "100%", height = "3000px")
+      )
+    } else {
+      plotlyOutput("clustering_tab", width = "100%", height = "700px")
+    }
+  })
+  
+  # Execute the query
+  data <- dbGetQuery(con, "SELECT gene_accession_id, parameter_id, ROUND(AVG(p_value), 6) AS avg_rounded_pvalue
+                       FROM Analyses WHERE p_value IS NOT NULL GROUP BY gene_accession_id, parameter_id
+                       ORDER BY avg_rounded_pvalue ASC;")
+  
+  # Reactive PCA matrix: pivot data to wide format
+  pca_matrix <- reactive({
+    data %>%
+      pivot_wider(
+        names_from = parameter_id,
+        values_from = avg_rounded_pvalue,
+        values_fill = 1 # Fill missing values with 1 (insignificant)
+      ) %>%
+      column_to_rownames("gene_accession_id") # Set gene_accession_id as rownames
+  })
+  # Render the cluster plot
+  output$clustering_tab <- renderPlotly({
+    req(pca_matrix())  # Ensure the PCA matrix is available
+    data_wide <- pca_matrix()  # This is the wide gene-by-parameter matrix
+    
+    # Filter genes based on the selected subset
+    if (input$gene_subset == "Genes with significant phenotypes (p<0.05)") {
+      keep_rows <- apply(data_wide, 1, function(x) any(x < 0.05, na.rm = TRUE))
+      data_wide <- data_wide[keep_rows, , drop = FALSE]
+    }
+    
+    # Scale the data
+    mat_scaled <- scale(data_wide)
+    
+    # Hierarchical clustering
+    if (input$cluster_method == "Hierarchical") {
+      if (nrow(mat_scaled) < 2) {
+        return(ggplotly(ggplot() + 
+                                  ggtitle("Not enough data for hierarchical clustering (need >= 2 rows).") +
+                                  theme_void()))
+      }
+      
+      # Perform hierarchical clustering
+      hc <- hclust(dist(mat_scaled), method = "ward.D")
+      dend <- as.dendrogram(hc) %>% hang.dendrogram(hang = 0.2)  # Adjust hanging tips
+      
+      # Prepare data for ggplot using ggdendro
+      dend_data <- ggdendro::dendro_data(dend, type = "rectangle")
+      branch_colors <- sample(colors(), nrow(dend_data$segments), replace = TRUE)  # Random branch colors
+      
+      # Create dendrogram plot
+      p <- ggplot() +
+        geom_segment(
+          data = dend_data$segments,
+          aes(x = x, y = y, xend = xend, yend = yend),
+          color = branch_colors,
+          size = 0.8
+        ) +
+        geom_text(
+          data = dend_data$labels %>%
+            mutate(y = y - max(dend_data$segments$y) * 0.1),
+          aes(x = x, y = y, label = label),
+          size = 2.5,
+          hjust = 0.5,
+          color = "black"
+        ) +
+        coord_flip() +
+        scale_y_reverse(expand = c(0.2, 0)) +
+        labs(
+          title = "Hierarchical Clustering of Knockout Mouse Genes",
+          x = "Genes of Knockout Mouse",
+          y = "Cluster Distance"
+        ) +
+        theme_minimal(base_size = 10) +
+        theme(
+          plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+          axis.text.y = element_text(size = 8),
+          axis.ticks.y = element_blank(),
+          axis.title.y = element_blank(),
+          panel.grid.major = element_line(color = "grey90"),
+          panel.grid.minor = element_blank()
+        )
+      return(ggplotly(p))
+    }
+    
+    # PCA clustering
+    else if (input$cluster_method == "PCA") {
+      if (nrow(data_wide) < 2) {
+        output$insufficient_data_message <- renderUI({
+          tagList(
+            h3("PCA requires at least 2 genes to perform the analysis.",
+               style = "color: red; text-align: center; font-size: 16px;"),
+            p("Please adjust your filters or select a broader dataset to proceed.", 
+              style = "text-align: center; font-size: 14px;")
+          )
+        })
+        return(NULL)
+      }
+      
+      numeric_data <- data_wide[, sapply(data_wide, is.numeric)]  # Ensure numeric columns
+      pca_result <- prcomp(numeric_data, scale. = TRUE)  # Run PCA
+      pca_data <- as.data.frame(pca_result$x[, 1:2])  # Use first two principal components
+      pca_data$gene_symbol <- rownames(data_wide)  # Add gene_symbol for tooltips
+      
+      # Perform k-means clustering
+      km <- kmeans(pca_data[, 1:2], centers = input$num_clusters)
+      pca_data$cluster <- factor(km$cluster)
+      
+      # Create PCA plot
+      plot_title <- paste("PCA Clustering of", input$gene_subset)
+      p <- ggplot(pca_data, aes(x = PC1, y = PC2, color = cluster, text = paste0("Gene: ", gene_symbol, "<br>Cluster: ", cluster))) +
+        geom_point(size = 3, alpha = 0.8) +
+        scale_color_manual(values = rainbow(input$num_clusters)) +
+        labs(
+          title = plot_title,
+          x = "Principal Component 1",
+          y = "Principal Component 2",
+          color = "Cluster"
+        ) +
+        theme_minimal() +
+        theme(
+          plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+          axis.title = element_text(size = 12, face = "bold"),
+          axis.text = element_text(size = 10),
+          legend.position = "right",
+          panel.border = element_rect(color = "black", fill = NA, size = 1.5),
+          panel.grid.major = element_line(size = 0.5, linetype = "dotted", color = "gray80"),
+          panel.grid.minor = element_blank()
+        )
+      return(ggplotly(p, tooltip = "text"))
+    }
+    
+    # UMAP clustering
+    else if (input$cluster_method == "UMAP") {
+      if (nrow(data_wide) <= 15) {
+        output$insufficient_data_message <- renderUI({
+          tagList(
+            h3("UMAP requires the number of genes to be greater than the number of neighbors (15).",
+               style = "color: red; text-align: center; font-size: 16px;"),
+            p("Please adjust your filters or select a broader dataset to proceed.", 
+              style = "text-align: center; font-size: 14px;")
+          )
+        })
+        return(NULL)
+      }
+      
+      umap_result <- umap(as.matrix(data_wide), n_neighbors = 15, min_dist = 0.1)
+      umap_data <- data.frame(
+        UMAP1 = umap_result$layout[, 1],
+        UMAP2 = umap_result$layout[, 2],
+        gene_symbol = rownames(data_wide)
+      )
+      
+      # Perform k-means clustering
+      km <- kmeans(umap_data[, c("UMAP1", "UMAP2")], centers = input$num_clusters)
+      umap_data$cluster <- factor(km$cluster)
+      
+      # Create UMAP plot
+      plot_title <- paste("UMAP Clustering of", input$gene_subset)
+      p <- ggplot(umap_data, aes(x = UMAP1, y = UMAP2, color = cluster, text = paste0("Gene: ", gene_symbol, "<br>Cluster: ", cluster))) +
+        geom_point(size = 3, alpha = 0.8) +
+        scale_color_manual(values = rainbow(input$num_clusters)) +
+        labs(
+          title = plot_title,
+          x = "UMAP 1",
+          y = "UMAP 2",
+          color = "Cluster"
+        ) +
+        theme_minimal() +
+        theme(
+          plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+          axis.title = element_text(size = 12, face = "bold"),
+          axis.text = element_text(size = 10),
+          legend.position = "right",
+          panel.border = element_rect(color = "black", fill = NA, size = 1.5)
+        )
+      return(ggplotly(p, tooltip = "text"))
+    }
+  })
+  
+}
+
