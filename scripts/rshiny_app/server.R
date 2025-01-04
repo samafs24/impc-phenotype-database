@@ -355,6 +355,24 @@ server <- function(input, output, session) {
     # PCA clustering
     # PCA clustering
     else if (input$cluster_method == "PCA") {
+      # Check if the number of rows is sufficient for PCA
+      if (nrow(data_wide) < 2) {  # PCA requires at least 2 rows
+        # Show the error message in the UI with smaller font size
+        output$insufficient_data_message <- renderUI({
+          tagList(
+            h3("PCA requires at least 2 genes to perform the analysis.",
+               style = "color: red; text-align: center; font-size: 16px;"),
+            p("Please adjust your filters or select a broader dataset to proceed.", 
+              style = "text-align: center; font-size: 14px;")
+          )
+        })
+        # Return NULL to skip plotting
+        return(NULL)
+      } else {
+        # Clear the message if data is sufficient
+        output$insufficient_data_message <- renderUI({ NULL })
+      }
+      
       numeric_data <- data_wide[, sapply(data_wide, is.numeric)]  # Ensure numeric columns
       pca_result <- prcomp(numeric_data, scale. = TRUE)  # Run PCA
       
@@ -399,6 +417,27 @@ server <- function(input, output, session) {
     # UMAP clustering
     # UMAP clustering
     else if (input$cluster_method == "UMAP") {
+      
+      umap_input <- as.matrix(data_wide)  # Convert to matrix for UMAP compatibility
+      
+    # Check if the number of rows is less than or equal to n_neighbors
+    if (nrow(umap_input) <= 15) {
+      # Show the error message in the UI
+      output$insufficient_data_message <- renderUI({
+        tagList(
+          h3("UMAP requires the number of genes to be greater than the number of neighbors (15).",
+             style = "color: red; text-align: center; font-size: 16px;"),
+          p("Please adjust your filters or select a broader dataset to proceed.", 
+            style = "text-align: center; font-size: 14px;")
+        )
+      })
+      # Return NULL to skip plotting
+      return(NULL)
+    } else {
+      # Clear the message if data is sufficient
+      output$insufficient_data_message <- renderUI({ NULL })
+    }
+    
       umap_result <- umap(as.matrix(data_wide), n_neighbors = 15, min_dist = 0.1)
       umap_data <- data.frame(
         UMAP1 = umap_result$layout[, 1],
