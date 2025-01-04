@@ -98,7 +98,7 @@ server <- function(input, output, session) {
   
   # Visualization 1: Statistical Scores for Selected Knockout Mouse
   # Render the UI container based on the selected plot type
-  output$plot_container <- renderUI({
+  output$genotype_plot_container <- renderUI({
     if (input$genotype_plot_type == "All Phenotypes") {
       div(
         style = "overflow-x: auto; overflow-y: hidden; height: 700px;",
@@ -187,13 +187,88 @@ server <- function(input, output, session) {
           axis.title.y = element_text(size = 12, face = "bold"),  
           plot.title = element_text(size = 15, face = "bold", hjust = 0.5)
         ) +
-        geom_hline(
-          yintercept = -log2(input$genotype_threshold), 
-          linetype = "dashed", 
-          color = "black"
-        )
+        geom_hline(yintercept = -log2(input$genotype_threshold), linetype = "dashed", color = "black") # Add threshold line 
       
       ggplotly(p, tooltip = "text")
-    } 
-  )
+    })
+  
+  # Visualization 2: 
+  # Render the UI container based on the selected plot type
+  output$phenotype_plot_container <- renderUI({
+    if (input$genotype_plot_type == "All Genotypes") {
+      div(
+        style = "overflow-x: auto; overflow-y: hidden; height: 700px;",
+        plotlyOutput("mouse_phenotype_plot", width = "5000px", height = "100%")
+      )
+    } else {
+      plotlyOutput("mouse_phenotype_plot", width = "100%", height = "700px")
+    }
+  })
+  
+  output$mouse_phenotype_plot <- renderPlotly({
+    req(input$phenotype, input$phenotype_group)
+    
+    # Query to fetch p-values for the selected phenotype and group
+    query <- sprintf("SELECT AVG(A.p_value) AS avg_p_value, G.gene_symbol FROM Analyses A
+                     JOIN Genes G ON A.gene_accession_id = G.gene_accession_id
+                     JOIN Parameters P ON A.parameter_id = P.parameter_id
+                     JOIN ParameterGroupings PG ON P.parameter_id = PG.parameter_id
+                     JOIN Groupings GR ON PG.group_id = GR.group_id
+                     WHERE P.parameter_name = '%s' AND GR.group_name = '%s'
+                     GROUP BY G.gene_symbol ORDER BY avg_p_value ASC;", 
+                     input$phenotype, input$phenotype_group)
+    
+    cat(query)
+    
+    # Fetch data from the database
+    data <- tryCatch(
+      dbGetQuery(con, query),
+      error = function(e) {
+        message("Error fetching data: ", e$message)
+        return(NULL)
+      }
+    )
+    
+    # If no data is available, display a message
+    output$no_data_message <- renderUI({
+      if (is.null(data) || nrow(data) == 0) {
+        tagList(
+          h3("No data available for the selected parameters. Please adjust your filters.",
+             style = "color: red; text-align: center;")
+        )
+      } else {
+        NULL
+      }
+    })
+    
+    # Group and summarize data for bar plot
+    data <- data %>%
+      filter(!is.na(gene_symbol) & tolower(gene_symbol) != "na") %>% # Remove rows with missing or invalid parameter names
+      mutate(
+        Threshold = ifelse(avg_p_value < input$phenotype_threshold, "Significant", "Not Significant") # Determine significance
+      )
+    
+    p <- ggplot(data, aes(x = reorder(gene_symbol, avg_p_value), y = avg_p_value, color = Threshold, text = paste("p-value:", avg_p_value, "<br>Gene:", gene_symbol))) +
+      geom_point(size = 1.5) +
+      scale_color_manual(values = c("Significant" = "palegreen3", "Not Significant" = "indianred3")) +
+      labs(
+        title = paste("Gene Knockout Scores for Selected Phenotype:", input$phenotype),
+        subtitle = paste("Showing genes with p-value <= ", input$phenotype_threshold),
+        x = "Gene Symbol", 
+        y = "p-value for Gene Association"
+      ) +
+      theme_minimal() +
+      theme(
+        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 4, face = "bold"),
+        axis.title.x = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(size = 12, face = "bold"),
+        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(size = 12, hjust = 0.5),
+        axis.text.y = element_text(size = 10)
+      ) +
+      geom_hline(yintercept = input$phenotype_threshold, linetype = "dashed", color = "black")
+    
+    ggplotly(p, tooltip = "text")
+  })
+  
   }

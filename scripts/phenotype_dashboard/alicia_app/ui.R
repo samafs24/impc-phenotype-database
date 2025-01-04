@@ -82,18 +82,19 @@ ui <- fluidPage(
         
         # Tab for figure 1
         tabPanel(
-          "Phenotype Scores for Knockout Mouse",
+          "Phenotype Scores for Selected Knockout Mouse",
           value = "mouse_genotype_tab",
           uiOutput("no_data_message"),  # Dynamic message output
-          uiOutput("plot_container"),  # Placeholder for dynamically rendered plot output
+          uiOutput("genotype_plot_container"),  # Placeholder for dynamically rendered plot output
           downloadButton("download_mouse_data", "Download Mouse Data")  # Button for downloading mouse data
         ),
         
         # Tab for figure 2 
         tabPanel(
-          "Knockout Gene Scores for Phenotype",
+          "Knockout Gene Scores for Selected Phenotype",
           value = "mouse_phenotype_tab",
-          plotlyOutput("phenotype_mouse_plot", height = "700px", width = "100%"),  # Plot for gene scores
+          uiOutput("no_data_message"),  # Dynamic message output
+          uiOutput("phenotype_plot_container"),  # Placeholder for dynamically rendered plot output
           downloadButton("download_phenotype_data", "Download Phenotype Data")  # Button for downloading phenotype data
         ),
         
