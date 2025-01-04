@@ -33,7 +33,7 @@ server <- function(input, output, session) {
   
   # Dynamically populate dropdowns for Figure 1
   observe({
-    # Populate knockout mouse options
+    # Populate knockout mouse options (only propose genes for which data is available in the dropout)
     gene_choices <- dbGetQuery(con, "SELECT DISTINCT gene_symbol FROM Genes G 
                                JOIN Analyses A ON G.gene_accession_id = A.gene_accession_id 
                                WHERE A.p_value IS NOT NULL 
@@ -42,16 +42,17 @@ server <- function(input, output, session) {
     })
   
   # Dynamically update mouse strain and life stage options based on selected gene
-  observeEvent(input$genotype_mouse, {
+  observe({
+    req(input$genotype_mouse)
     
-    # Populate mouse strain options
+    # Populate mouse strain options (only propose strains where data is available for the selected gene)
     mouse_strains <- dbGetQuery(con, sprintf("
         SELECT DISTINCT mouse_strain FROM Analyses A 
         JOIN Genes G ON G.gene_accession_id = A.gene_accession_id 
         WHERE G.gene_symbol = '%s' AND A.p_value IS NOT NULL;", input$genotype_mouse))
     updateSelectInput(session, "genotype_mouse_strain", choices = c("All", mouse_strains$mouse_strain))
     
-    # Populate life stage options
+    # Populate life stage options (only propose life stages for which data is available for the selected gene)
     life_stages <- dbGetQuery(con, sprintf("
         SELECT DISTINCT mouse_life_stage FROM Analyses A 
         JOIN Genes G ON G.gene_accession_id = A.gene_accession_id 
@@ -59,25 +60,28 @@ server <- function(input, output, session) {
     updateSelectInput(session, "genotype_life_stage", choices = c("All", life_stages$mouse_life_stage))
     })
   
-  
   # Dynamically populate dropdowns for Figure 2
-  observe({
-    # Populate phenotype group options
-    procedures <- dbGetQuery(con, "SELECT DISTINCT procedure_name FROM ProceduresTable ORDER BY procedure_name ASC;")
+  # Populate procedure options (only procedures with associated data in Analyses)
+  observe({procedures <- dbGetQuery(con, "
+        SELECT DISTINCT PT.procedure_name FROM ProceduresTable PT
+        JOIN Parameters P ON PT.procedure_id = P.procedure_id
+        JOIN Analyses A ON P.parameter_id = A.parameter_id
+        WHERE A.p_value IS NOT NULL ORDER BY PT.procedure_name ASC;")
     procedures$procedure_name <- str_to_title(procedures$procedure_name)
     updateSelectInput(session, "procedure", choices = procedures$procedure_name)
   })
   
+  # Populate parameter options based on the selected procedure (only parameters with associated data in Analyses)
   observe({
-    # Populate phenotype based on the selected group
     req(input$procedure)
-    phenotypes <- dbGetQuery(con, sprintf("
-    SELECT P.parameter_name FROM Parameters P
-    JOIN ProceduresTable PT ON P.procedure_id = PT.procedure_id
-    WHERE PT.procedure_name = '%s'
-    ORDER BY P.parameter_name ASC;", input$procedure))
-    phenotypes$parameter_name <- str_to_title(phenotypes$parameter_name)
-    updateSelectInput(session, "phenotype", choices = phenotypes$parameter_name)
+    parameters <- dbGetQuery(con, sprintf("
+        SELECT DISTINCT P.parameter_name FROM Parameters P
+        JOIN ProceduresTable PT ON P.procedure_id = PT.procedure_id
+        JOIN Analyses A ON P.parameter_id = A.parameter_id
+        WHERE PT.procedure_name = '%s' AND A.p_value IS NOT NULL
+        ORDER BY P.parameter_name ASC;", input$procedure))
+    parameters$parameter_name <- str_to_title(parameters$parameter_name)
+    updateSelectInput(session, "phenotype", choices = parameters$parameter_name)
   })
   
   
