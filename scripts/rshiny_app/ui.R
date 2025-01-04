@@ -29,7 +29,7 @@ ui <- fluidPage(
                     choices = NULL, selected = NULL),  # Dynamically populated
         sliderInput("genotype_threshold", 
                     "Significance Threshold (p-value):", 
-                    min = 0, max = 1, value = 0.05, step = 0.01),
+                    min = 0, max = 0.1, value = 0.05, step = 0.001),
         selectInput("genotype_plot_type", 
                     "Select Plot Type:", 
                     choices = c("All Phenotypes", "Top 25 Phenotypes"), selected = "All Phenotypes"),
@@ -40,7 +40,7 @@ ui <- fluidPage(
                     "Select Mouse Life Stage:", 
                     choices = NULL, selected = "All"),  # Dynamically populated
         div(style = "font-size: 12px; color: grey; margin-top: 10px;",
-            "Only options with data available in the database are proposed in the dropdown."
+            "Only options with data available in the database are proposed in the dropdown menu."
         )
       ),
       
@@ -49,7 +49,7 @@ ui <- fluidPage(
         condition = "input.tabs == 'mouse_phenotype_tab'",
         sliderInput("phenotype_threshold", 
                     "Significance Threshold (p-value):", 
-                    min = 0, max = 1, value = 0.05, step = 0.01),
+                    min = 0, max = 0.1, value = 0.05, step = 0.001),
         selectInput("phenotype_plot_type", 
                     "Select Plot Type:", 
                     choices = c("All Genotypes", "Top 25 Genotypes"), selected = "All Genotypes"),
@@ -61,7 +61,7 @@ ui <- fluidPage(
                     choices = NULL, selected = NULL),  # Dynamically populated
         textOutput("phenotype_explanation"),
         div(style = "font-size: 12px; color: grey; margin-top: 10px;",
-            "Only options with data available in the database are proposed in the dropdown."
+            "Only options with data available in the database are proposed in the dropdown menu."
         )
       ),
       
