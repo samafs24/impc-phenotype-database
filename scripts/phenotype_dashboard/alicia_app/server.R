@@ -34,23 +34,31 @@ server <- function(input, output, session) {
   # Dynamically populate dropdowns for Figure 1
   observe({
     # Populate knockout mouse options
-    gene_choices <- dbGetQuery(con, "SELECT DISTINCT gene_symbol FROM Genes ORDER BY gene_symbol ASC;")
-    if (nrow(gene_choices) > 0) {
-      updateSelectInput(session, "genotype_mouse", choices = gene_choices$gene_symbol)
-    }
+    gene_choices <- dbGetQuery(con, "SELECT DISTINCT gene_symbol FROM Genes G 
+                               JOIN Analyses A ON G.gene_accession_id = A.gene_accession_id 
+                               WHERE A.p_value IS NOT NULL 
+                               ORDER BY gene_symbol ASC;")
+    updateSelectInput(session, "genotype_mouse", choices = gene_choices$gene_symbol)
+    })
+  
+  # Dynamically update mouse strain and life stage options based on selected gene
+  observeEvent(input$genotype_mouse, {
     
     # Populate mouse strain options
-    mouse_strain <- dbGetQuery(con, "SELECT DISTINCT mouse_strain FROM Analyses;")
-    if (nrow(mouse_strain) > 0) {
-      updateSelectInput(session, "genotype_mouse_strain", choices = c("All", mouse_strain$mouse_strain))
-    }
+    mouse_strains <- dbGetQuery(con, sprintf("
+        SELECT DISTINCT mouse_strain FROM Analyses A 
+        JOIN Genes G ON G.gene_accession_id = A.gene_accession_id 
+        WHERE G.gene_symbol = '%s' AND A.p_value IS NOT NULL;", input$genotype_mouse))
+    updateSelectInput(session, "genotype_mouse_strain", choices = c("All", mouse_strains$mouse_strain))
     
     # Populate life stage options
-    life_stage <- dbGetQuery(con, "SELECT DISTINCT mouse_life_stage FROM Analyses;")
-    if (nrow(life_stage) > 0) {
-      updateSelectInput(session, "genotype_life_stage", choices = c("All", life_stage$mouse_life_stage))
-    }
-  })
+    life_stages <- dbGetQuery(con, sprintf("
+        SELECT DISTINCT mouse_life_stage FROM Analyses A 
+        JOIN Genes G ON G.gene_accession_id = A.gene_accession_id 
+        WHERE G.gene_symbol = '%s' AND A.p_value IS NOT NULL;", input$genotype_mouse))
+    updateSelectInput(session, "genotype_life_stage", choices = c("All", life_stages$mouse_life_stage))
+    })
+  
   
   # Dynamically populate dropdowns for Figure 2
   observe({
@@ -100,7 +108,7 @@ server <- function(input, output, session) {
     req(input$genotype_mouse)
     
     base_query <- sprintf("
-    SELECT P.parameter_name, P.parameter_id, AVG(CASE WHEN A.p_value = 0 THEN 0.000001 ELSE A.p_value END) AS avg_p_value, COUNT(A.p_value) AS data_count
+    SELECT P.parameter_name, P.parameter_id, AVG(CASE WHEN A.p_value = 0 THEN 0.000001 ELSE A.p_value END) AS avg_p_value
     FROM Analyses A
     JOIN Parameters P ON A.parameter_id = P.parameter_id
     WHERE A.gene_accession_id IN (
@@ -121,6 +129,7 @@ server <- function(input, output, session) {
                           ORDER BY avg_p_value ASC;")
     
     cat(final_query)
+    
     data <- dbGetQuery(con, final_query)
     
     output$no_data_message_genotype <- renderUI({
@@ -189,7 +198,7 @@ server <- function(input, output, session) {
     req(input$phenotype, input$procedure)
     
     # Query to fetch p-values for the selected phenotype and procedure
-    query <- sprintf("SELECT AVG(CASE WHEN A.p_value = 0 THEN 0.000001 ELSE A.p_value END) AS avg_p_value, COUNT(A.p_value) AS data_count, G.gene_symbol FROM Analyses A
+    query <- sprintf("SELECT AVG(CASE WHEN A.p_value = 0 THEN 0.000001 ELSE A.p_value END) AS avg_p_value, G.gene_symbol FROM Analyses A
                      JOIN Genes G ON A.gene_accession_id = G.gene_accession_id
                      JOIN Parameters P ON A.parameter_id = P.parameter_id
                      JOIN ProceduresTable PT ON P.procedure_id = PT.procedure_id
@@ -236,7 +245,7 @@ server <- function(input, output, session) {
       ) +
       theme_minimal() +
       theme(
-        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 10, face = "bold"),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 0.5, size = 10, face = "bold"),
         axis.title.x = element_text(size = 12, face = "bold"),
         axis.title.y = element_text(size = 12, face = "bold"),
         plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
