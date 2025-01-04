@@ -38,7 +38,10 @@ ui <- fluidPage(
                     choices = NULL, selected = "All"), # Dynamically populated
         selectInput("genotype_life_stage", 
                     "Select Mouse Life Stage:", 
-                    choices = NULL, selected = "All")  # Dynamically populated
+                    choices = NULL, selected = "All"),  # Dynamically populated
+        div(style = "font-size: 12px; color: grey; margin-top: 10px;",
+            "Only options with data available in the database are proposed in the dropdown."
+        )
       ),
       
       # Dropdown menu for figure 2
@@ -56,7 +59,10 @@ ui <- fluidPage(
         selectInput("phenotype", 
                     "Select Phenotype:", 
                     choices = NULL, selected = NULL),  # Dynamically populated
-        textOutput("phenotype_explanation")
+        textOutput("phenotype_explanation"),
+        div(style = "font-size: 12px; color: grey; margin-top: 10px;",
+            "Only options with data available in the database are proposed in the dropdown."
+        )
       ),
       
       # Dropdown menu for figure 3
