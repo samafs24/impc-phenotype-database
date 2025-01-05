@@ -40,7 +40,7 @@ ui <- fluidPage(
                     "Select Mouse Life Stage:", 
                     choices = NULL, selected = "All"),  # Dynamically populated
         div(style = "font-size: 12px; color: grey; margin-top: 10px;",
-            "Only options with data available in the database are proposed in the dropdown menu."
+            "Only options with data available are present in the dropdown menu."
         )
       ),
       
@@ -61,7 +61,7 @@ ui <- fluidPage(
                     choices = NULL, selected = NULL),  # Dynamically populated
         textOutput("phenotype_explanation"),
         div(style = "font-size: 12px; color: grey; margin-top: 10px;",
-            "Only options with data available in the database are proposed in the dropdown menu."
+            "Only options with data available are present in the dropdown menu."
         )
       ),
       
@@ -91,24 +91,21 @@ ui <- fluidPage(
         tabPanel(
           "Phenotype Scores for Selected Knockout Mouse",
           value = "mouse_genotype_tab",
-          uiOutput("genotype_plot_container"),  # Placeholder for dynamically rendered plot output
-          downloadButton("download_mouse_data", "Download Mouse Data")  # Button for downloading mouse data
+          uiOutput("genotype_plot_container")  # Placeholder for dynamically rendered plot output
         ),
         
         # Tab for figure 2 
         tabPanel(
           "Knockout Gene Scores for Selected Phenotype",
           value = "mouse_phenotype_tab",
-          uiOutput("phenotype_plot_container"),  # Placeholder for dynamically rendered plot output
-          downloadButton("download_phenotype_data", "Download Phenotype Data")  # Button for downloading phenotype data
+          uiOutput("phenotype_plot_container")  # Placeholder for dynamically rendered plot output
         ),
         
         # Tab for figure 3
         tabPanel(
           "Gene Clusters",
           value = "clustering_tab",
-          uiOutput("clustering_plot_container"),  # Placeholder for dynamically rendered plot output
-          downloadButton("download_cluster_data", "Download Cluster Data")  # Button for downloading cluster data
+          uiOutput("clustering_plot_container")  # Placeholder for dynamically rendered plot output
         )
       )
     )
