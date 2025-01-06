@@ -1173,10 +1173,6 @@ This script checks if MySQL is running and connects with local file import enabl
 
 ```{sql}
 #| eval: false
-
-# Check if MySQL is running
-ps -ef | grep mysql
-
 # Connect to MySQL with local file import enabled
 mysql -u root -p --local-infile=1
 ```

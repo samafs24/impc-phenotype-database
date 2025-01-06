@@ -24,7 +24,7 @@ server <- function(input, output, session) {
     host = "localhost",
     port = 3306,
     user = "root",
-    password = "mahiat123"
+    password = "KCL2024!"
   )
   
   # Ensure the database connection is closed when the app stops
@@ -64,7 +64,7 @@ server <- function(input, output, session) {
   # Dynamically populate dropdowns for Figure 2
   # Populate procedure options (only procedures with associated data in Analyses)
   observe({procedures <- dbGetQuery(con, "
-        SELECT DISTINCT PT.procedure_name FROM ProceduresTable PT
+        SELECT DISTINCT PT.procedure_name FROM Procedures PT
         JOIN Parameters P ON PT.procedure_id = P.procedure_id
         JOIN Analyses A ON P.parameter_id = A.parameter_id
         WHERE A.p_value IS NOT NULL ORDER BY PT.procedure_name ASC;")
@@ -77,7 +77,7 @@ server <- function(input, output, session) {
     req(input$procedure)
     parameters <- dbGetQuery(con, sprintf("
         SELECT DISTINCT P.parameter_name FROM Parameters P
-        JOIN ProceduresTable PT ON P.procedure_id = PT.procedure_id
+        JOIN Procedures PT ON P.procedure_id = PT.procedure_id
         JOIN Analyses A ON P.parameter_id = A.parameter_id
         WHERE PT.procedure_name = '%s' AND A.p_value IS NOT NULL
         ORDER BY P.parameter_name ASC;", input$procedure))
@@ -195,7 +195,7 @@ server <- function(input, output, session) {
     query <- sprintf("SELECT AVG(CASE WHEN A.p_value = 0 THEN 0.000001 ELSE A.p_value END) AS avg_p_value, G.gene_symbol FROM Analyses A
                      JOIN Genes G ON A.gene_accession_id = G.gene_accession_id
                      JOIN Parameters P ON A.parameter_id = P.parameter_id
-                     JOIN ProceduresTable PT ON P.procedure_id = PT.procedure_id
+                     JOIN Procedures PT ON P.procedure_id = PT.procedure_id
                      WHERE P.parameter_name = '%s' AND PT.procedure_name = '%s'
                      GROUP BY G.gene_symbol ORDER BY avg_p_value ASC;", 
                      input$phenotype, input$procedure)
