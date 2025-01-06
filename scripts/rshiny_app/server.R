@@ -101,7 +101,7 @@ server <- function(input, output, session) {
     if (input$genotype_plot_type == "All Phenotypes") {
       div(
         style = "overflow-x: auto; overflow-y: hidden; height: 720px;",
-        plotlyOutput("mouse_genotype_plot", width = "8000px", height = "100%")
+        plotlyOutput("mouse_genotype_plot", width = "12000px", height = "100%")
       )
     } else {
       plotlyOutput("mouse_genotype_plot", width = "100%", height = "700px")
@@ -181,7 +181,7 @@ server <- function(input, output, session) {
     if (input$phenotype_plot_type == "All Genotypes") {
       div(
         style = "overflow-x: auto; overflow-y: hidden; height: 550px;",
-        plotlyOutput("mouse_phenotype_plot", width = "8000px", height = "100%")
+        plotlyOutput("mouse_phenotype_plot", width = "5000px", height = "100%")
       )
     } else {
       plotlyOutput("mouse_phenotype_plot", width = "100%", height = "700px")
