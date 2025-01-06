@@ -1065,9 +1065,9 @@ parameters_table <- left_join(parameter, procedure, by = join_by(parameter_mappi
     procedure_id = if_else(
       is.na(procedure_id), 
       max(procedure$procedure_id, na.rm = TRUE),
-      procedure_id                                
-    )
-  ) %>% 
+      procedure_id), # Replace missing parameter names with parameter ID to enable visualisation
+      parameter_name = ifelse(is.na(parameter_name), parameter_id, parameter_name
+    )) %>% 
   distinct(parameter_id, parameter_name, parameter_description, procedure_id)
 
 write_csv(parameters_table, paste0(rootDir, "/data/collated/Parameters.csv"), quote = "all")
