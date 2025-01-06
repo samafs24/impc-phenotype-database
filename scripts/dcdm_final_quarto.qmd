@@ -1341,6 +1341,24 @@ IGNORE 1 LINES;
 /opt/homebrew/bin/mysqldump IMPCDb -u root -p > /Users/aliciahobdell/Desktop/data_cleaning/DCDM_group3/data/database/IMPCDb.dump
 ```
 
+## Creating the database from the dump file
+
+```{bash}
+# Log into MySQL
+mysql -u root -p
+```
+
+```{sql}
+# Create empty database named IMPCDb
+CREATE DATABASE IMPCDb;
+EXIT;
+```
+
+```{bash}
+# Import the dump file
+mysql -u root -p IMPCDb < "/Users/ellajadealex/Desktop/applied_bioinformatics/DCDM/group_project/DCDM_IMPC_Project/data/database/IMPCDb.dump"
+```
+
 # R/Shiny (Sanj/Sama)
 
 **Test R/Shiny 1:** They want the ability to select a particular knockout mouse and visualise the statistical scores of all phenotypes tested.
