@@ -24,7 +24,7 @@ server <- function(input, output, session) {
     host = "localhost",
     port = 3306,
     user = "root",
-    password = "mahiat123"
+    password = "KCL2024!"
   )
   
   # Ensure the database connection is closed when the app stops

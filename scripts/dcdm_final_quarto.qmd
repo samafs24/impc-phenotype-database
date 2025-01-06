@@ -564,7 +564,7 @@ procedure <- read_csv(temporary_path, show_col_types = FALSE, col_names = TRUE) 
     # Convert mapping to numeric, introduces NA for invalid entries  
     parameter_mapping = as.numeric(parameter_mapping),
     # Convert the column to logical
-    is_mandatory = as.logical(is_mandatory), 
+    is_mandatory = as.integer(as.logical(is_mandatory)), 
   # Standardize conflicting descriptions for rows referring to the same observation
     procedure_description = case_when(
       procedure_name == "Experimental design" ~ "experimental_design",        
@@ -967,7 +967,6 @@ Key fields (`procedure_id`, `procedure_name`, `procedure_description`, `is_manda
 ```{r}
 procedures_table <- procedure %>%
   select(procedure_id, procedure_name, procedure_description, is_mandatory) %>%
-  mutate(is_mandatory = as.integer(is_mandatory)) %>%
   distinct()
 
 write_csv(procedures_table, paste0(rootDir, "/data/collated/Procedures.csv"), quote = "all")
@@ -1206,7 +1205,7 @@ CREATE TABLE Genes (
     gene_symbol VARCHAR(13)                          -- Gene symbol (1-13 characters)
 ) COMMENT = 'Stores gene identifiers and symbols.';
 
-CREATE TABLE ProceduresTable (
+CREATE TABLE Procedures (
     procedure_id INT PRIMARY KEY,                    -- Unique ID for each procedure
     procedure_name VARCHAR(47),                      -- Procedure name (max 47 characters)
     procedure_description VARCHAR(1090),             -- Procedure description (max 1090 characters)
@@ -1229,8 +1228,8 @@ CREATE TABLE Parameters (
     parameter_id VARCHAR(18) PRIMARY KEY,            -- Unique ID for each parameter (15-18 characters)
     parameter_name VARCHAR(74),                      -- Parameter name (2-74 characters)
     parameter_description VARCHAR(1000),             -- Parameter description (max 1000 characters)
-    procedure_id INT,                                -- Foreign key to ProceduresTable
-    FOREIGN KEY (procedure_id) REFERENCES ProceduresTable(procedure_id)
+    procedure_id INT,                                -- Foreign key to Procedures
+    FOREIGN KEY (procedure_id) REFERENCES Procedures(procedure_id)
 ) COMMENT = 'Stores parameter metadata.';
 
 CREATE TABLE Analyses (
@@ -1272,7 +1271,7 @@ With the tables created and CSV files ready, data can be imported into MySQL usi
 #| eval: false
 
 LOAD DATA LOCAL INFILE '/Users/aliciahobdell/Desktop/data_cleaning/DCDM_group3/data/collated/Procedures.csv'
-INTO TABLE ProceduresTable
+INTO TABLE Procedures
 FIELDS TERMINATED BY ','    
 OPTIONALLY ENCLOSED BY '"'    
 IGNORE 1 LINES;             
@@ -1333,7 +1332,7 @@ IGNORE 1 LINES;
 
 ##### A total of 143 parameters corresponding to 83,712 analysis files have non-IMPC identifiers, meaning they are not linked to any procedure. This violates the foreign key constraints in the database, resulting in the following issues: {style="color: red"}
 
-1.  During the loading of the `Parameters` table, missing or invalid `procedure_id` values (e.g., `NA`) cause errors, such as "Incorrect integer value: 'NA' for column 'procedure_id' at row 3601." Additionally, foreign key violations occur when `procedure_id` values are not linked to `ProceduresTable`.
+1.  During the loading of the `Parameters` table, missing or invalid `procedure_id` values (e.g., `NA`) cause errors, such as "Incorrect integer value: 'NA' for column 'procedure_id' at row 3601." Additionally, foreign key violations occur when `procedure_id` values are not linked to `Procedures`.
 
 2.  During the loading of the `Analyses` table, non-IMPC `parameter_id` values prevent rows from referencing the `Parameters` table, resulting in foreign key constraint failures.
 
@@ -1622,6 +1621,7 @@ The param_cluster_assignments dataframe maps each parameter (parameter_id) to a 
 PCA trial (while Shiny wasn't working):
 
 ```{r}
+#| eval: false
 
 # Add PCA-transformed data to a data frame
 pca_data <- as.data.frame(pca_result$x)
@@ -1666,6 +1666,7 @@ ggplot(pca_data, aes(x = PC1, y = PC2, color = cluster, label = gene_accession_i
 **Identifying Parameter Groupings**
 
 ```{r}
+#| eval: false
 
 ## Extract Loadings 
 loadings <- pca_result$rotation  # This is a matrix of size (num_parameters × num_PCs)
@@ -1693,6 +1694,7 @@ param_clusters <- kmeans(loadings, centers = 4)
 **Create groupings based on clusters**
 
 ```{r}
+#| eval: false
 
 write.csv(param_cluster_assignments, "/Users/sama/Desktop/DCDM/data/groupings/parameter_clusters.csv", row.names = FALSE)
 
@@ -1721,12 +1723,15 @@ param_with_names
 ```
 
 ```{r}
+#| eval: false
+
 cluster_summary <- param_with_names %>%
   group_by(cluster) %>%
   summarise(num_parameters = n())
 ```
 
 ```{r}
+#| eval: false
 
 grouped_parameters <- param_with_names %>%
   group_by(cluster) %>%
@@ -1771,26 +1776,3 @@ Cluster 5: Lipid metabolism and cholestrol, Eye, Bones and joint health, Blood, 
 Cluster 6: Immune system, external appearence, Eye, Physiology and their measurements, Morphology, Behaviorial responses.
 
 Possible groupings: Metabolism, Eye, Cardiovascular,Morphology, Audiology, Immunology, Behaviorial responses.
-
-```{r}
-
-group_patterns <- tibble(
-  group_name = c(
-    "weight", "images", "brain", "cardiovascular", "eye", 
-    "metabolic", "morphology", "audiology", 
-    "immunology", "Behavior"
-  ),
-  regex_pattern = c(
-    "weight|density|fat|lean|BMI|BMC|mass|composition|bone|length|adipose|lipid|body size|size|growth|skeletal|area|volume",
-    "image|screenshot|microscope|pdf|lacz|waveform|ogram|resolution|visual|pixel|scan|photo|imaging|bit depth|microscopy|contrast",
-    "brain|cortex|hippo|thalamus|amygdala|lobe|cere|spinal|pituitary|striatum|hypothal|neural|neuronal|pons|medulla|ganglion|nerve|enceph|ventricle|choroid",
-    "heart|cardiac|vascular|blood|vein|aort|arter|HR|stroke|ejection|QT|circulation|pulse|pressure|rate|systolic|diastolic|respiration|respiratory|PR|pulse|ECG|cardio|valve|LVPWs|platelet|",
-    "eye|retina|cornea|lens|eyelid|iris|optic|ocular|vision|acuity|photoreceptor|brightness|scheimpflug|nuclear|macula|pupil|color|refraction|sclera|vitreous|retinal|lens|",
-    "glucose|insulin|cholesterol|lipid|triglycerides|fasting|diet|energy|metabolism|metabolic|AUC|glycemic|resistance|glucagon|carbohydrate|diabetes|protein|fat|urea|sodium|potassium|phosphorus|calories|homeostasis|hdl|ldl",
-    "morphology|shape|size|growth|length|hypoplasia|syndactyly|microcephaly|anatomy|limb|edema|facial|cleft|dysmorphic|developmental|pattern|CRL|development|blebs|appearance|structure|pattern|thickness|pelvis|hair|color|coat",
-    "ABR|hearing|audiometry|waveform|tone|decibel|audiogram|stimulus|frequency|click|response|threshold|sound|ear",
-    "Lymphocyte|Neutrophil|NKT|Treg|Leukocyte|Basophil|Platelet|Spleen|Blood|Cell|Immune|Differential|White|Hemoglobin|Eosinophil|Monocyte",
-    "behavior|locomotor|percentage|movement|time|center|speed|distance|resting|stimuli|startle|unexpected|vocalization|entries|rears|tremor|tongue|curl|vibrissae|aggression|pallor|turning|activity"
-  )
-)
-```
