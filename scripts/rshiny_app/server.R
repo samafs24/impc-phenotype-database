@@ -24,7 +24,7 @@ server <- function(input, output, session) {
     host = "localhost",
     port = 3306,
     user = "root",
-    password = "KCL2024!"
+    password = "H2ppiness!"
   )
   
   # Ensure the database connection is closed when the app stops
@@ -333,7 +333,7 @@ server <- function(input, output, session) {
               panel.grid.minor = element_blank()                                # Remove minor grid lines
               )
       
-      return(ggplotly(p))
+      return(ggplotly(p, tooltip = NULL))
     }
     
     # PCA clustering
