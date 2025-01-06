@@ -80,6 +80,12 @@ ui <- fluidPage(
                     choices = c("All genes", 
                                 "Genes with Significant Phenotypes (p<0.05)"),
                     selected = "All genes"),
+        selectInput(
+          inputId = "distance_metric",
+          label = "Select Distance Metric:",
+          choices = c("Euclidean", "Correlation"),
+          selected = "Euclidean"
+        )
         )
     ),
 

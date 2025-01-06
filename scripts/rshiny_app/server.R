@@ -24,7 +24,7 @@ server <- function(input, output, session) {
     host = "localhost",
     port = 3306,
     user = "root",
-    password = "inputpassword"
+    password = "mahiat123"
   )
   
   # Ensure the database connection is closed when the app stops
@@ -274,81 +274,65 @@ server <- function(input, output, session) {
     req(pca_matrix(), gene_symbols)  # Ensure the PCA matrix is available
     data_wide <- pca_matrix()  # This is the wide gene-by-parameter matrix
     
-    # Filter genes where no p-value is lower than 0.05
+    # Filter genes based on p-value threshold
     if (input$gene_subset == "Genes with Significant Phenotypes (p<0.05)") {
       keep_rows <- apply(data_wide, 1, function(x) all(x >= 0.05, na.rm = TRUE))
       data_wide <- data_wide[keep_rows, , drop = FALSE]
     }
-
-    # Standardization: scale the data so all features contribute equally to analysis
+    
+    # Standardize the data
     mat_scaled <- scale(data_wide)
     
     # Hierarchical clustering
     if (input$cluster_method == "Hierarchical") {
-      # Perform hierarchical clustering on scaled data
-      hc <- hclust(dist(mat_scaled), method = "ward.D")
-      #    Convert hclust -> dendrogram -> apply "hang" to shorten tips
-      #    "hang" sets how far tips hang below the rest of the dendrogram.
-      #    0.1 or 0.2 often works well. Smaller => shorter vertical lines to labels.
-      # Convert clustering results to a dendrogram 
-      dend <- as.dendrogram(hc) %>%
-        hang.dendrogram(hang = 0.2)  # tweak 0.2 as desired
+      # Compute the distance matrix
+      distance_matrix <- if (input$distance_metric == "Euclidean") {
+        dist(mat_scaled)
+      } else if (input$distance_metric == "Correlation") {
+        as.dist(1 - cor(t(mat_scaled), method = "pearson"))
+      }
       
-      # Convert the dendrogram into a ggplot-compatible structure
+      # Perform hierarchical clustering
+      hc <- hclust(distance_matrix, method = "ward.D")
+      
+      # Convert to a dendrogram
+      dend <- as.dendrogram(hc) %>%
+        hang.dendrogram(hang = 0.2)
+      
+      # Convert dendrogram to ggplot-compatible data
       dend_data <- dendro_data(dend, type = "rectangle")
       
-      str(dend_data$labels)
-      
-      
-      # Add gene symbols to dendrogram labels
+      # Merge gene symbols for labels
       dend_data$labels <- dend_data$labels %>%
-        left_join(gene_symbols, by = c("label" = "gene_accession_id")) %>%  # Merge gene symbols
-        mutate(label = gene_symbol)  # Replace gene IDs with gene symbols
+        left_join(gene_symbols, by = c("label" = "gene_accession_id")) %>%
+        mutate(label = gene_symbol)
       
-      set.seed(123)  # For reproducibility
-
-      # Generate random colors for the branches in the dendrogram
-      branch_colors <- sample(colors(), nrow(dend_data$segments), replace = TRUE)  # Random branch colors
-  
-
-      # Create dendrogram plot using ggplot
+      # Create dendrogram plot
       p <- ggplot() +
-        # Add dendrogram branches as line segments
         geom_segment(
           data = dend_data$segments,
           aes(x = x, y = y, xend = xend, yend = yend),
-          color = branch_colors,  # Assign random branch colors
           size = 0.8              # Set line thickness for branches
-        ) +
-        
-        # Add gene labels to the dendrogram
-        geom_text(
-          data = dend_data$labels %>%
-            mutate(y = y - max(dend_data$segments$y) * 0.2),  # Shift labels further down
-          aes(x = x, y = y, label = label),
-          size = 3,
-          hjust = 0.5,  # Center the text horizontally
-          color = "black"
-        ) +
-        
-        # Flip coordinates to display horizontally
+          )+
+        geom_text(data = dend_data$labels %>%
+                    mutate(y = y - max(dend_data$segments$y) * 0.2),
+                  aes(x = x, y = y, label = label),
+                  size = 3, hjust = 0.5, color = "black") +
         coord_flip() +
-        
-        # Reverse y-axis to make clusters grow upward
         scale_y_reverse(expand = c(0.2, 0)) +
-        theme_minimal(base_size = 10) +
-        # Add plot title and axis labels
+        theme_minimal() +
         labs(
-          title = paste(input$cluster_method, "Clustering of", input$gene_subset),
+          title = paste(input$cluster_method, "Clustering of", input$gene_subset, 
+                        "using", input$distance_metric, "distance"),
           x = "Phenotypic Similarity",
           y = "Genes"
         ) +
-        theme(
-          plot.title = element_text(size = 16, face = "bold", hjust = 0.5),  
-          axis.text.y = element_text(size = 8),                             
-          panel.grid.major = element_line(color = "grey90"),                # Light grid lines
-          panel.grid.minor = element_blank()                                # Remove minor grid lines
-        )
+        theme(plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+              axis.text.y = element_text(size = 8),                             
+              panel.grid.major = element_line(color = "grey90"),                # Light grid lines
+              panel.grid.minor = element_blank()                                # Remove minor grid lines
+              )
+      
       return(ggplotly(p))
     }
     
