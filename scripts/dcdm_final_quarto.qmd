@@ -1,11 +1,11 @@
 ---
 title: "DCDM Project Log"
-author: "Alicia"
+author: "DCDM Group 3"
 editor: visual
 format: html
 ---
 
-# TRE Egress (Ella)
+# TRE Egress
 
 ## **Data Security Awareness Training**
 
@@ -73,7 +73,7 @@ dir.create(file.path(rootDir, "data/collated"), recursive = TRUE)      # Directo
 dir.create(file.path(rootDir, "data/database"), recursive = TRUE)      # Directory for the database dump file
 ```
 
-## Cleaning the Raw Data Files (Esta)
+## Cleaning the Raw Data Files
 
 The experiment data includes an SOP that defines constraints for each field, such as data type, minimum and maximum values for numerical fields, string lengths, and specific allowable values. Data quality is assessed by comparing the raw data against these constraints.
 
@@ -104,7 +104,7 @@ expected_row_names <- trimws(read_csv(SOP_path, show_col_types = FALSE)$dataFiel
 expected_row_names
 ```
 
-### Validating the Number of Columns (Esta)
+### Validating the Number of Columns
 
 To quickly identify any any delimitation errors, we can validate the number of columns per CSV file (each file should have 2 columns).
 
@@ -125,7 +125,7 @@ validate_columns <- function(file_path) {
 }
 ```
 
-### Check and Correct the Field Names (Esta)
+### Check and Correct the Field Names
 
 With the correct files loaded and directories specified, we define a function to perform the following tasks:
 
@@ -211,9 +211,9 @@ diff -yr --suppress-common-line /path/to/raw_directory /path/to/cleaned_director
 rm(raw_data_dir, validation_results, summary_message)
 ```
 
-### Combining the Raw Data in a Table (Alicia)
+### Combining the Raw Data in a Table
 
-Esta made sure all analysis files have the same field names: `analysis_id`, `gene_accession_id`, `gene_symbol`, `mouse_strain`, `mouse_life_stage`, `parameter_id`, `parameter_name`, and `pvalue`.
+We made sure all analysis files have the same field names: `analysis_id`, `gene_accession_id`, `gene_symbol`, `mouse_strain`, `mouse_life_stage`, `parameter_id`, `parameter_name`, and `pvalue`.
 
 To make data cleaning and processing easier, these files will be combined into one table using these shared fields. This way, we can check all values for a specific field at once (vectorized), making the process faster and simpler.
 
@@ -245,7 +245,7 @@ colnames(analysis) <- expected_row_names
 write_csv(analysis, paste0(rootDir, "data/raw_data/analysis_table.txt")) # Save the combined table as a CSV
 ```
 
-### QC and Cleaning the Combined Analysis Data (Esta)
+### QC and Cleaning the Combined Analysis Data
 
 For each column we check whether column values are the right lengths (for strings) or size (for floats), and whether the results match allowed values, like for `mouse_strain` and `mouse_life_stage`. We also to checked if certain variables are perfectly correlated with one another.
 
@@ -503,7 +503,7 @@ The cleaning process for the procedure, parameter, and disease files had two ste
 
 Finally, a quick check was done to confirm that the fields followed the SOP rules.
 
-### `IMPC_procedure.txt (Alicia)`
+### `IMPC_procedure.txt`
 
 #### Formatting
 
@@ -648,7 +648,7 @@ if (length(errors) == 0) {
 }
 ```
 
-### `IMPC_parameter_description.txt (Alicia/Sama)`
+### `IMPC_parameter_description.txt`
 
 #### Formatting
 
@@ -827,7 +827,7 @@ if (length(errors) == 0) {
 }
 ```
 
-### `disease_information.txt (Alicia/Sanj)`
+### `disease_information.txt`
 
 #### Formatting
 
@@ -945,13 +945,13 @@ if (length(errors) == 0) {
 rm(errors, temporary_path)
 ```
 
-# Collating (Alicia)
+# Collating
 
 ![](images/Screenshot%202024-12-27%20at%2019.24.12.png)
 
 Although the metadata and analysis tables have been cleaned, they do not match the agreed database structure. To make them compatible, new tables are created by selecting and transforming specific fields from the cleaned data. Some tables require merging information from multiple sources. The final outputs are saved as CSV files for upload into the database.
 
-To avoid rerunning the entire script, the cleaned tables are loaded:
+To avoid re-running the entire script, the cleaned tables are loaded:
 
 ```{r}
 procedure <- read_csv(paste0(rootDir, "data/cleaned/cleaned_IMPC_procedure.csv"), show_col_types = FALSE) 
@@ -1165,7 +1165,7 @@ groupXparameter_table <- parameter %>%
 write_csv(groupXparameter_table, paste0(rootDir, "/data/collated/ParameterGroupings.csv"), quote = "all")
 ```
 
-# MySQL Database (Alicia)
+# MySQL Database
 
 After creating the tables in R, the database can be set up in MySQL, and the tables can be imported directly using the `LOAD DATA LOCAL INFILE` function.
 
@@ -1359,7 +1359,7 @@ EXIT;
 mysql -u root -p IMPCDb < "/Users/ellajadealex/Desktop/applied_bioinformatics/DCDM/group_project/DCDM_IMPC_Project/data/database/IMPCDb.dump"
 ```
 
-# R/Shiny (Sanj/Sama)
+# R/Shiny
 
 **Test R/Shiny 1:** They want the ability to select a particular knockout mouse and visualise the statistical scores of all phenotypes tested.
 
@@ -1509,7 +1509,7 @@ con <- dbConnect(
   host = "localhost",
   port = 3306,
   user = "root",
-  password = "Llama123@"  # Replace with your password
+  password = "pw"  # Replace with your password
 )
 
 # Query the database
@@ -1671,10 +1671,6 @@ ggplot(pca_data, aes(x = PC1, y = PC2, color = cluster, label = gene_accession_i
   ) +
   geom_text(aes(label = gene_accession_id), vjust = 1.5, size = 3, check_overlap = TRUE)  # Optional: Add gene labels
 
-
-
-
-
 ```
 
 **Identifying Parameter Groupings**
@@ -1700,8 +1696,6 @@ barplot(loadings[, "PC1"], las = 2,
 ## Grouping parameters based on their loadings
 param_clusters <- kmeans(loadings, centers = 4) 
 # or hierarchical clustering on 'loadings' to find sets of parameters that have similar loading patterns across the PCs
-
-
 
 ```
 
@@ -1777,16 +1771,16 @@ write.csv(grouped_parameters_wide, "/Users/sama/Desktop/DCDM/data/groupings/grou
 
 Examining the data:
 
-Cluster 1: behaviorial and neurological features, Eye, morphology, metabolic (Body, size and weights) and biochemical, immune system/haematologocal features.
+**Cluster 1:** behavioral and neurological features, Eye, morphology, metabolic (Body, size and weights) and biochemical, immune system/hematological features.
 
-Cluster 2: blood and immune system, Metabolic function (organ health and energy balance), Neurological (brain, behavior, and cognitive function), Morphology and external appearance (body and organ size, bone structure, skin, hair, and ear morphology) Pathological markers, Eye.
+**Cluster 2:** blood and immune system, Metabolic function (organ health and energy balance), Neurological (brain, behavior, and cognitive function), Morphology and external appearance (body and organ size, bone structure, skin, hair, and ear morphology) Pathological markers, Eye.
 
-Cluster 3: External appearance (Skin colour), Audiology, Metabolism, Blood, Morphology, Cardiovascular, Behavorial features, Bones and skeletal, Immune cells and Eye.
+**Cluster 3:** External appearance (Skin colour), Audiology, Metabolism, Blood, Morphology, Cardiovascular, Behavioral features, Bones and skeletal, Immune cells and Eye.
 
-Cluster 4: Metabolism, Cardiovascular, External appearance, Audiology, Neurological and Eye
+**Cluster 4:** Metabolism, Cardiovascular, External appearance, Audiology, Neurological and Eye
 
-Cluster 5: Lipid metabolism and cholestrol, Eye, Bones and joint health, Blood, Immune system, growth and development, Behaviorial and neurological, External appearence.
+**Cluster 5:** Lipid metabolism and cholesterol, Eye, Bones and joint health, Blood, Immune system, growth and development, Behavioral and neurological, External appearance.
 
-Cluster 6: Immune system, external appearence, Eye, Physiology and their measurements, Morphology, Behaviorial responses.
+**Cluster 6:** Immune system, external appearance, Eye, Physiology and their measurements, Morphology, Behavioral responses.
 
-Possible groupings: Metabolism, Eye, Cardiovascular,Morphology, Audiology, Immunology, Behaviorial responses.
+**Possible groupings:** Metabolism, Eye, Cardiovascular,Morphology, Audiology, Immunology, Behaviorial responses.
