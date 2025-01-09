@@ -24,7 +24,7 @@ server <- function(input, output, session) {
     host = "localhost",
     port = 3306,
     user = "root",
-    password = "mahiat123" # Replace with your password
+    password = "KCL2024!" # Replace with your password
   )
   
   # Ensure the database connection is closed when the app stops
@@ -216,14 +216,14 @@ server <- function(input, output, session) {
       data <- data[1:min(25, nrow(data)), ]
     }
     
-    p <- ggplot(data, aes(x = reorder(gene_symbol, avg_p_value), y = -log10(avg_p_value), fill = Threshold, text = paste("p-value:", avg_p_value, "<br>Gene:", gene_symbol))) +
+    p <- ggplot(data, aes(x = reorder(gene_symbol, avg_p_value), y = -log2(avg_p_value), fill = Threshold, text = paste("p-value:", avg_p_value, "<br>Gene:", gene_symbol))) +
       geom_bar(stat = "identity", width = 0.8, show.legend = TRUE) +
       scale_fill_manual(values = c("Significant" = "palegreen3", "Not Significant" = "indianred3")) +
       labs(
         title = paste("The Statistical Scores of", input$phenotype_plot_type, "for:", input$phenotype),
         subtitle = paste("Showing genes with p-value <= ", input$phenotype_threshold),
         x = "Knockout Mouse Genotype", 
-        y = "-log10(p-value) Signifcance"
+        y = "-log2(p-value) Signifcance"
       ) +
       theme_minimal() +
       theme(
@@ -234,7 +234,7 @@ server <- function(input, output, session) {
         plot.subtitle = element_text(size = 12, hjust = 0.5),
         axis.text.y = element_text(size = 10)
       ) +
-      geom_hline(yintercept = -log10(input$phenotype_threshold), linetype = "dashed", color = "black")
+      geom_hline(yintercept = -log2(input$phenotype_threshold), linetype = "dashed", color = "black")
     
     ggplotly(p, tooltip = "text")
   })
