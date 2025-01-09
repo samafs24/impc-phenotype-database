@@ -249,7 +249,7 @@ write_csv(analysis, paste0(rootDir, "data/raw_data/analysis_table.txt")) # Save 
 
 For each column we check whether column values are the right lengths (for strings) or size (for floats), and whether the results match allowed values, like for `mouse_strain` and `mouse_life_stage`. We also to checked if certain variables are perfectly correlated with one another.
 
-First we load the data and generate a log file.
+First we load the data and generate a log message to go into the log file.
 
 ```{r}
 # Read the collated analysis file
@@ -265,7 +265,7 @@ log_message <- function(message) {
 log_message("=== Data Validation and Transformation Log ===")
 ```
 
-Check if variable data types match those specified in the SOP - all character (or string) data types except for `pvalue` (numeric or float).
+Check if variable data types match those specified in the SOP - all character (or string) data types except for `pvalue` (numeric or float). Here we also generate the log file & start the log file input.
 
 ```{r}
 # Extract expected data types from the SOP and map them to R-compatible types
@@ -478,7 +478,7 @@ log_message("Cleaned dataset saved as 'cleaned_analysis_table.txt'.")
 log_message("=== End of Log ===")
 ```
 
-Log file shows the all the messaged corresponding to the if/else statement results in every step of this workflow.
+Log file displays all the log messages for the check & modify results in every step of this workflow.
 
 ```{r}
 # Remove temporary variables and objects to free up memory
