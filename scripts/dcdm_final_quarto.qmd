@@ -105,19 +105,18 @@ expected_row_names
 To quickly identify any any delimitation errors, we can validate the number of columns per CSV file (each file should have 2 columns).
 
 ```{r}
-# Function to validate the column count in a file
+# Function to validate column count
 validate_columns <- function(file_path) {
-  # Attempt to read the file, returning NULL if an error occurs
-  analysis <- tryCatch(
+  # Read the file and check its column count
+  data <- tryCatch(
     read_csv(file_path, col_names = FALSE, show_col_types = FALSE),
-    error = function(e) return(NULL)  # Handle file reading errors gracefully
+    error = function(e) return(NULL)
   )
   
-  # Return FALSE if the file could not be read
-  if (is.null(analysis)) return(FALSE)
+  if (is.null(data)) return(FALSE)
   
-  # Check if the file has exactly 2 columns; return TRUE if it does, otherwise FALSE
-  return(ncol(analysis) == 2)
+  # Return TRUE if the file has exactly 2 columns, otherwise FALSE
+  return(ncol(data) == 2)
 }
 ```
 
@@ -135,38 +134,39 @@ Here, I have also included the column count validation function defined above. T
 
 ```{r}
 # Function to validate, update, and reorder row names
-check_files <- function(file_path) {
+process_file <- function(file_path) {
   # Validate column count
-  if(!validate_columns(file_path)){
+  if (!validate_columns(file_path)) {
     message(paste("File", basename(file_path), "does not have exactly 2 columns. Skipping."))
     return(FALSE)
   }
+  
   # Read the CSV file as headerless
-  analysis <- tryCatch(
+  data <- tryCatch(
     read_csv(file_path, col_names = FALSE, show_col_types = FALSE), 
     error = function(e) return(NULL))
   
   # If file reading fails, skip processing
-  if (is.null(analysis)) return(FALSE)
+  if (is.null(data)) return(FALSE)
   
   # Normalize row names
-  analysis[[1]] <- tolower(analysis[[1]])
+  data[[1]] <- tolower(data[[1]])
   
   # Identify missing rows and add them, input NA value for second column
-  missing_rows <- setdiff(expected_row_names, analysis[[1]])
+  missing_rows <- setdiff(expected_row_names, data[[1]])
   if (length(missing_rows) > 0) {
-    missing_data <- tibble(!!colnames(analysis)[1] := missing_rows)
-    for (i in 2:ncol(analysis)) {
-      missing_data[[colnames(analysis)[i]]] <- NA
+    missing_data <- tibble(!!colnames(data)[1] := missing_rows)
+    for (i in 2:ncol(data)) {
+      missing_data[[colnames(data)[i]]] <- NA
     }
-    analysis <- bind_rows(analysis, missing_data)
+    data <- bind_rows(data, missing_data)
   }
   
   # Reorder rows based on expected_row_names
-  analysis <- arrange(analysis, match(analysis[[1]], expected_row_names))
+  data <- arrange(data, match(data[[1]], expected_row_names))
   
   # Save the updated file as headerless
-  write_csv(analysis, paste0(updated_data_dir, basename(file_path)), col_names = FALSE)
+  write_csv(data, file.path(output_dir, basename(file_path)), col_names = FALSE)
  
   return(TRUE)
 }
@@ -175,20 +175,14 @@ check_files <- function(file_path) {
 We now apply this function to all data files. This process will generate an `updated_data` folder containing the cleaned files and a log file in the main directory.
 
 ```{r}
-#| eval: false
+# Process files and log results
+validation_results <- sapply(list.files(data_dir, pattern = "\\.csv$", full.names = TRUE), process_file)
 
-# Process CSV files in the raw data directory and validate them
-validation_results <- dir_ls(path = raw_data_dir, glob = "*.csv") %>%
-  map_dfr(check_files)  # Apply check_files to each file and collect results
-
-# Log the validation summary
-summary_message <- sprintf(
-  "Validation Summary:\nTotal files checked: %d\nTotal updated files: %d\n", 
-  length(validation_results), 
-  sum(validation_results)
-)
-write_lines(summary_message, log_file)  # Write summary to the log file
-message(summary_message)                # Print summary to the console
+# Log summary
+summary_message <- sprintf("Validation Summary:\nTotal files checked: %d\nTotal updated files: %d\n",
+                           length(validation_results), sum(validation_results))
+write(summary_message, log_file)
+message(summary_message)            # Print summary to the console
 ```
 
 The log file, now streamlined to include only this summary, initially contained detailed row name differences between the files and the SOP, based on a subset of 600 files.
@@ -249,12 +243,12 @@ First we load the data and generate a log message to go into the log file.
 
 ```{r}
 # Read the collated analysis file
-analysis <- read_csv(paste0(rootDir, "data/raw_data/analysis_table.txt"), show_col_types = FALSE)
+data <- read_csv(paste0(rootDir, "data/raw_data/analysis_table.txt"), show_col_types = FALSE)
 
 # Define a custom logging function
 log_message <- function(message) {
-  cat(message, "\n", file = log_file, append = TRUE)  # Write message to log file
-  message(message)                                    # Display message in the console
+  cat(message, "\n", file = log_file, append = TRUE) # Write message to log file
+  message(message)# Display message in the console
 }
 
 # Log the start of the process
@@ -269,7 +263,7 @@ expected_data_types <- read_csv(SOP_path, show_col_types = FALSE)$dataType %>%
   recode("String" = "character", "Float" = "numeric")  # Map SOP data types to R data types
 
 # Determine the actual data types of the analysis table columns
-data_types <- sapply(analysis, class)
+data_types <- sapply(data, class)
 
 # Identify mismatched data types by comparing actual vs. expected
 type_mismatches <- tibble(
@@ -295,7 +289,7 @@ Check if `analysis_id` values are all 15 characters long and all unique.
 
 ```{r}
 # Validate 'analysis_id' by checking length and uniqueness
-invalid_ids <- analysis %>%
+invalid_ids <- data %>%
   filter(nchar(analysis_id) != 15 | duplicated(analysis_id))  # Identify invalid IDs
 
 # Log the results of the validation
@@ -310,7 +304,7 @@ Check if `gene_accession_id` values are all between 9-11 characters long.
 
 ```{r}
 # Validate 'gene_accession_id' by checking its length
-invalid_gene_lengths <- analysis %>%
+invalid_gene_lengths <- data %>%
   filter(nchar(gene_accession_id) < 9 | nchar(gene_accession_id) > 11)  # Identify invalid lengths
 
 # Log the results of the validation
@@ -327,7 +321,7 @@ Check & format `gene_symbol` so all values are in title format.
 # Validate and format 'gene_symbol'
 
 # Check for invalid gene_symbol lengths
-invalid_gene_symbols <- analysis %>%
+invalid_gene_symbols <- data %>%
   filter(nchar(gene_symbol) < 1 | nchar(gene_symbol) > 13)  # Identify invalid lengths
 
 # Log the results of the validation
@@ -340,7 +334,7 @@ log_message(if (nrow(invalid_gene_symbols) == 0) {
 
 ```{r}
 # Convert all gene_symbol values to title case and remove duplicates
-analysis <- analysis %>%
+data <- data %>%
   mutate(gene_symbol = str_to_title(str_to_lower(gene_symbol))) %>%
   distinct()
 ```
@@ -349,7 +343,7 @@ Check if `gene_accession_id` and `gene_symbol` are perfectly correlated.
 
 ```{r}
 # Check correlation between `gene_accession_id` and `gene_symbol`
-gene_symbol_correlation <- analysis %>%
+gene_symbol_correlation <- data %>%
   select(gene_accession_id, gene_symbol) %>%
   distinct() %>%
   group_by(gene_accession_id) %>%
@@ -366,9 +360,9 @@ log_message(if (nrow(gene_symbol_correlation) == 0) {
 Check & format `mouse_strain` so all results are one of the four valid strains specified in the SOP: C57BL, B6J, C3H or 129SV. Our results show 11 unique strains, 9 of which appear to be typos of C57BL (e.g. C53BL, C58BL - none of the 'typos' are valid mouse strains according to MGI).
 
 ```{r}
-unique(analysis$mouse_strain)
+unique(data$mouse_strain)
 # Validate and fix `mouse_strain` by standardizing known values and replacing others with "C57BL"
-analysis <- analysis %>%
+data <- data %>%
   mutate(mouse_strain = ifelse(mouse_strain %in% c("C57BL", "B6J", "C3H", "129SV"), mouse_strain, "C57BL"))
 
 # Log the update to mouse_strain values
@@ -378,9 +372,10 @@ log_message("Updated mouse_strain values. Non-standard values were replaced with
 Check if `mouse_life_stage` values are one of the allowed values according to the SOP.
 
 ```{r}
-# Validate `mouse_life_stage` by checking against valid values
-invalid_life_stages <- analysis %>%
-  filter(!mouse_life_stage %in% c("E12.5", "E15.5", "E18.5", "E9.5", "Early adult", "Late adult", "Middle aged adult"))
+### Validate 'mouse_life_stage'
+
+allowed_life_stages <- c("E12.5", "E15.5", "E18.5", "E9.5", "Early adult", "Late adult", "Middle aged adult")
+invalid_life_stages <- data %>% filter(!mouse_life_stage %in% allowed_life_stages)
 
 # Log the results of the validation
 log_message(if (nrow(invalid_life_stages) == 0) {
@@ -394,7 +389,7 @@ Checking if `parameter_id` & `parameter_name` are the correct lengths (15-18 cha
 
 ```{r}
 # Validate 'parameter_id' by checking its length
-invalid_parameter_ids <- analysis %>%
+invalid_parameter_ids <- data %>%
   filter(nchar(parameter_id) < 15 | nchar(parameter_id) > 18)  # Identify invalid lengths
 
 log_message(if (nrow(invalid_parameter_ids) == 0) {
@@ -404,7 +399,7 @@ log_message(if (nrow(invalid_parameter_ids) == 0) {
 })
 
 # Validate 'parameter_name' by checking its length
-invalid_parameter_names <- analysis %>%
+invalid_parameter_names <- data %>%
   filter(nchar(parameter_name) < 2 | nchar(parameter_name) > 74)  # Identify invalid lengths
 
 log_message(if (nrow(invalid_parameter_names) == 0) {
@@ -414,7 +409,7 @@ log_message(if (nrow(invalid_parameter_names) == 0) {
 })
 
 # Check correlation between 'parameter_id' and 'parameter_name'
-parameter_correlation <- analysis %>%
+parameter_correlation <- data %>%
   group_by(parameter_id) %>%
   summarise(unique_names = n_distinct(parameter_name)) %>%
   filter(unique_names > 1)  # Identify cases where one parameter_id maps to multiple parameter_names
@@ -429,15 +424,12 @@ log_message(if (nrow(parameter_correlation) == 0) {
 Check if all `pvalues` are between 0 & 1, if not cap the values at those extremes. In this case, we had no values below 0 but we did have values above 1. All `pvalue` results are standardized to 6 decimal points.
 
 ```{r}
-# Validate and fix 'pvalue'
+### Validate and fix 'pvalue'
 
-# Cap p-values to be >=1 & round all results to 6 decimal points
-analysis <- analysis %>%
+data <- data %>%
+  # Cap p-values >1 and standardising to 6 decimal points
   mutate(pvalue = ifelse(pvalue > 1, 1, round(pvalue, 6)))
-
-# Identify invalid pvalues (out of range or missing)
-invalid_pvalues <- analysis %>%
-  filter(pvalue < 0 | pvalue > 1 | is.na(pvalue))
+invalid_pvalues <- data %>% filter(pvalue < 0 | pvalue > 1 | is.na(pvalue))
 
 # Log the validation results
 log_message(if (nrow(invalid_pvalues) == 0) {
@@ -450,14 +442,13 @@ log_message(if (nrow(invalid_pvalues) == 0) {
 Finally, check the data-frame for rows with identical results in every column (excluding `analysis_id`, which are all identical). Once identified, these rows are removed.
 
 ```{r}
-#
-rows_before <- nrow(analysis)
+rows_before <- nrow(data)
 
 ### Check & remove duplicate rows (excluding 'analysis_id')
-analysis <- analysis %>%
+data <- data %>%
   distinct(across(-analysis_id), .keep_all = TRUE)
 
-rows_after <- nrow(analysis)
+rows_after <- nrow(data)
 
 log_message(paste(rows_before - rows_after, "duplicated rows removed. Updated dataset has",rows_after,"rows."))
 
@@ -467,7 +458,7 @@ Save the cleaned data-frame to a new file.
 
 ```{r}
 # Save the cleaned analysis dataset to the cleaned data directory
-write_csv(analysis, paste0(rootDir, "data/cleaned/cleaned_analysis_table.txt"))
+write_csv(data, paste0(rootDir, "data/cleaned/cleaned_analysis_table.txt"), row.names = FALSE)
 
 # Log the successful save operation
 log_message("Cleaned dataset saved as 'cleaned_analysis_table.txt'.")
@@ -475,17 +466,6 @@ log_message("=== End of Log ===")
 ```
 
 Log file displays all the log messages for the check & modify results in every step of this workflow.
-
-```{r}
-# Remove temporary variables and objects to free up memory
-rm(
-  invalid_gene_lengths, invalid_gene_symbols, invalid_ids, invalid_life_stages,
-  invalid_parameter_ids, invalid_parameter_names, invalid_pvalues, 
-  parameter_correlation, type_mismatches, gene_symbol_correlation, 
-  log_file, log_message, updated_data_dir, SOP_path, 
-  rows_before, rows_after
-)
-```
 
 ## Cleaning the Metadata Files
 
