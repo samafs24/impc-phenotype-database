@@ -160,7 +160,7 @@ server <- function(input, output, session) {
       scale_fill_manual(values = c("Significant" = "palegreen3", "Not Significant" = "indianred3")) + 
       labs(
         title = paste("The Statistical Scores of", input$genotype_plot_type, "for Genotype:", input$genotype_mouse),
-        x = "Knockout Mouse Parameter",
+        x = "Knockout Mouse Phenotype",
         y = "-log2(p-value) Significance"
       ) +
       theme_minimal() +
