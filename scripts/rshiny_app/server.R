@@ -24,7 +24,7 @@ server <- function(input, output, session) {
     host = "localhost",
     port = 3306,
     user = "root",
-    password = "INSERT PASSWORD" # Replace with your password
+    password = "mahiat123" # Replace with your password
   )
   
   # Ensure the database connection is closed when the app stops
@@ -159,9 +159,9 @@ server <- function(input, output, session) {
       scale_x_discrete(labels = data$parameter_name) +  # Display only parameter_name
       scale_fill_manual(values = c("Significant" = "palegreen3", "Not Significant" = "indianred3")) + 
       labs(
-        title = paste(input$genotype_plot_type, "for", input$genotype_mouse),
-        x = "Phenotype",
-        y = "Significance (-log2(p-value))"
+        title = paste("The Statistical Scores of", input$genotype_plot_type, "for Genotype:", input$genotype_mouse),
+        x = "Knockout Mouse Parameter",
+        y = "-log2(p-value) Significance"
       ) +
       theme_minimal() +
       theme(
@@ -220,10 +220,10 @@ server <- function(input, output, session) {
       geom_bar(stat = "identity", width = 0.8, show.legend = TRUE) +
       scale_fill_manual(values = c("Significant" = "palegreen3", "Not Significant" = "indianred3")) +
       labs(
-        title = paste(input$phenotype_plot_type, "for", input$phenotype),
+        title = paste("The Statistical Scores of", input$phenotype_plot_type, "for:", input$phenotype),
         subtitle = paste("Showing genes with p-value <= ", input$phenotype_threshold),
-        x = "Genotype", 
-        y = "Significance (-log10(p-value))"
+        x = "Knockout Mouse Genotype", 
+        y = "-log10(p-value) Signifcance"
       ) +
       theme_minimal() +
       theme(
