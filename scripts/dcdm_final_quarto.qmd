@@ -58,7 +58,7 @@ library(fs)         # File system operations
 #| warning: false
 
 # Set working directory (change as needed)
-rootDir <- "~/Desktop/DCDM_project"
+rootDir <- "INSERT ROOT DIRECTORY"
 
 # Create directories
 dir.create(file.path(rootDir, "data/metadata"), recursive = TRUE)      # Directory for procedure, parameter, disease files, query genes, and SOP documents
@@ -134,7 +134,7 @@ Here, I have also included the column count validation function defined above. T
 
 ```{r}
 # Function to validate, update, and reorder row names
-process_file <- function(file_path) {
+check_files <- function(file_path) {
   # Validate column count
   if (!validate_columns(file_path)) {
     message(paste("File", basename(file_path), "does not have exactly 2 columns. Skipping."))
@@ -166,7 +166,7 @@ process_file <- function(file_path) {
   data <- arrange(data, match(data[[1]], expected_row_names))
   
   # Save the updated file as headerless
-  write_csv(data, file.path(output_dir, basename(file_path)), col_names = FALSE)
+  write_csv(data, paste0(updated_data_dir, basename(file_path)), col_names = FALSE)
  
   return(TRUE)
 }
@@ -176,7 +176,7 @@ We now apply this function to all data files. This process will generate an `upd
 
 ```{r}
 # Process files and log results
-validation_results <- sapply(list.files(data_dir, pattern = "\\.csv$", full.names = TRUE), process_file)
+validation_results <- sapply(list.files(raw_data_dir, pattern = "\\.csv$", full.names = TRUE), check_files)
 
 # Log summary
 summary_message <- sprintf("Validation Summary:\nTotal files checked: %d\nTotal updated files: %d\n",
@@ -458,7 +458,7 @@ Save the cleaned data-frame to a new file.
 
 ```{r}
 # Save the cleaned analysis dataset to the cleaned data directory
-write_csv(data, paste0(rootDir, "data/cleaned/cleaned_analysis_table.txt"), row.names = FALSE)
+write_csv(data, paste0(rootDir, "data/cleaned/cleaned_analysis_table.txt"))
 
 # Log the successful save operation
 log_message("Cleaned dataset saved as 'cleaned_analysis_table.txt'.")
@@ -466,6 +466,12 @@ log_message("=== End of Log ===")
 ```
 
 Log file displays all the log messages for the check & modify results in every step of this workflow.
+
+```{r}
+# Remove temporary variables and objects to free up memory
+rm( invalid_gene_lengths, invalid_gene_symbols, invalid_ids, invalid_life_stages, invalid_parameter_ids, invalid_parameter_names, invalid_pvalues, parameter_correlation, type_mismatches, gene_symbol_correlation, log_file, log_message, updated_data_dir, SOP_path, rows_before, rows_after
+)
+```
 
 ## Cleaning the Metadata Files
 
@@ -1320,17 +1326,23 @@ IGNORE 1 LINES;
 ## Creating the database from the dump file
 
 ```{bash}
+#| eval: false
+
 # Log into MySQL
 mysql -u root -p
 ```
 
 ```{sql}
+#| eval: false
+
 # Create empty database named IMPCDb
 CREATE DATABASE IMPCDb;
 EXIT;
 ```
 
 ```{bash}
+#| eval: false
+
 # Import the dump file
 mysql -u root -p IMPCDb < "/Users/ellajadealex/Desktop/applied_bioinformatics/DCDM/group_project/DCDM_IMPC_Project/data/database/IMPCDb.dump"
 ```

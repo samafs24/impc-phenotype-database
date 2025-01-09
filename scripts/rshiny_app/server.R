@@ -24,7 +24,7 @@ server <- function(input, output, session) {
     host = "localhost",
     port = 3306,
     user = "root",
-    password = "pw" # Replace with your password
+    password = "INSERT PASSWORD" # Replace with your password
   )
   
   # Ensure the database connection is closed when the app stops
