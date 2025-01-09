@@ -1630,48 +1630,7 @@ write.csv(param_cluster_assignments, "parameter_clusters.csv", row.names=FALSE)
 
 ```
 
-The param_cluster_assignments dataframe maps each parameter (parameter_id) to a cluster number, thus telling us which parameters are grouped together based on their similar loain
-
-PCA trial (while Shiny wasn't working):
-
-```{r}
-#| eval: false
-
-# Add PCA-transformed data to a data frame
-pca_data <- as.data.frame(pca_result$x)
-pca_data$gene_accession_id <- genes_param_wide$gene_accession_id
-
-# Perform K-means clustering on PCA-transformed data
-set.seed(123)  # Set seed for reproducibility
-num_clusters <- 3  # Choose the number of clusters (adjust as needed)
-kmeans_result <- kmeans(pca_data[, 1:2], centers = num_clusters)
-
-# Add cluster information to the PCA data frame
-pca_data$cluster <- as.factor(kmeans_result$cluster)
-
-# Visualize the PCA results with clusters
-ggplot(pca_data, aes(x = PC1, y = PC2, color = cluster, label = gene_accession_id)) +
-  geom_point(size = 3, alpha = 0.8) +
-  scale_color_manual(values = c("indianred3", "steelblue", "darkolivegreen3")) +  # Customize cluster colors
-  labs(
-    title = "PCA Clustering of Genes Based on Phenotype Scores",
-    x = "Principal Component 1",
-    y = "Principal Component 2",
-    color = "Cluster"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
-    axis.title = element_text(size = 12, face = "bold"),
-    axis.text = element_text(size = 10),
-    legend.position = "right",
-    panel.border = element_rect(color = "black", fill = NA, size = 1.5),
-    panel.grid.major = element_line(size = 0.5, linetype = "dotted", color = "gray80"),
-    panel.grid.minor = element_blank()
-  ) +
-  geom_text(aes(label = gene_accession_id), vjust = 1.5, size = 3, check_overlap = TRUE)  # Optional: Add gene labels
-
-```
+The param_cluster_assignments dataframe maps each parameter (parameter_id) to a cluster number, thus telling us which parameters are grouped together based on their similar loadings.
 
 **Identifying Parameter Groupings**
 
