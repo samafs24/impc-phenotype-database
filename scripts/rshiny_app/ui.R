@@ -85,8 +85,8 @@ ui <- fluidPage(
           selectInput(
             inputId = "distance_metric",
             label = "Select Distance Metric:",
-            choices = c("Euclidean", "Correlation"),
-            selected = "Euclidean")
+            choices = c("Correlation", "Euclidean"),
+            selected = "Correlation")
         )
         )
     ),
