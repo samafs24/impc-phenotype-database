@@ -57,12 +57,8 @@ library(fs)         # File system operations
 ```{r}
 #| warning: false
 
-# Set working directory (uncomment for other users as needed)
-rootDir <- "/Users/aliciahobdell/Desktop/data_cleaning/DCDM_group3/" # Allie
-# rootDir <- "/Users/sanjanasrinivasan/Desktop/DCDM_IMPC_Project/" # Sanj
-# rootDir <- "/Users/ellajadealex/Desktop/applied_bioinformatics/DCDM/group_project/DCDM_IMPC_Project/" # Ella
-# rootDir <- "/Users/sama/Desktop/DCDM_Proj2/" # Sama
-# rootDir <- "~/Desktop/working_directory/DCDM_project" # Esta
+# Set working directory (change as needed)
+rootDir <- "~/Desktop/DCDM_project"
 
 # Create directories
 dir.create(file.path(rootDir, "data/metadata"), recursive = TRUE)      # Directory for procedure, parameter, disease files, query genes, and SOP documents
