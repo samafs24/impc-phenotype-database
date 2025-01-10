@@ -220,7 +220,7 @@ server <- function(input, output, session) {
       geom_bar(stat = "identity", width = 0.8, show.legend = TRUE) +
       scale_fill_manual(values = c("Significant" = "palegreen3", "Not Significant" = "indianred3")) +
       labs(
-        title = paste("The Statistical Scores of", input$phenotype_plot_type, "for:", input$phenotype),
+        title = str_to_title(paste("The Statistical Scores of", input$phenotype_plot_type, "for:", input$phenotype)),
         subtitle = paste("Showing genes with p-value <= ", input$phenotype_threshold),
         x = "Knockout Mouse Genotype", 
         y = "-log2(p-value) Signifcance"
@@ -322,8 +322,8 @@ server <- function(input, output, session) {
         scale_y_reverse(expand = c(0.2, 0)) +
         theme_minimal() +
         labs(
-          title = paste(input$cluster_method, "Clustering of", input$gene_subset, 
-                        "using", input$distance_metric, "distance"),
+          title = str_to_title(paste(input$cluster_method, "Clustering of", input$gene_subset, 
+                        "using", input$distance_metric, "distance")),
           x = "Phenotypic Similarity",
           y = "Genes"
         ) +
@@ -373,7 +373,7 @@ server <- function(input, output, session) {
       pca_data$cluster <- factor(km$cluster)
       
       # Create PCA plot
-      plot_title <- paste("PCA Clustering of", input$gene_subset)
+      plot_title <- str_to_title(paste("PCA Clustering of", input$gene_subset))
       p <- ggplot(pca_data, aes(
         x = PC1, y = PC2, color = cluster, 
         text = paste0("Gene: ", gene_symbol, "<br>Cluster: ", cluster))) +
