@@ -169,7 +169,7 @@ server <- function(input, output, session) {
         axis.text.y = element_text(size = 10),
         axis.title.x = element_text(size = 12, face = "bold"),  
         axis.title.y = element_text(size = 12, face = "bold"),  
-        plot.title = element_text(size = 15, face = "bold", hjust = 0.5)
+        plot.title = element_text(size = 12, face = "bold", hjust = 0.5)
       ) +
       geom_hline(yintercept = -log2(input$genotype_threshold), linetype = "dashed", color = "black") # Add threshold line 
     ggplotly(p, tooltip = "text")
@@ -230,7 +230,7 @@ server <- function(input, output, session) {
         axis.text.x = element_text(angle = 45, hjust = 1, vjust = 0.5, size = 10, face = "bold"),
         axis.title.x = element_text(size = 12, face = "bold"),
         axis.title.y = element_text(size = 12, face = "bold"),
-        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+        plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
         plot.subtitle = element_text(size = 12, hjust = 0.5),
         axis.text.y = element_text(size = 10)
       ) +
@@ -327,7 +327,7 @@ server <- function(input, output, session) {
           x = "Phenotypic Similarity",
           y = "Genes"
         ) +
-        theme(plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+        theme(plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
               axis.text.y = element_text(size = 8),                             
               panel.grid.major = element_line(color = "grey90"),                # Light grid lines
               panel.grid.minor = element_blank()                                # Remove minor grid lines
@@ -387,7 +387,7 @@ server <- function(input, output, session) {
         ) +
         theme_minimal() +
         theme(
-          plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+          plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
           axis.title = element_text(size = 12, face = "bold"),
           axis.text = element_text(size = 10),
           legend.position = "right",
@@ -452,7 +452,7 @@ server <- function(input, output, session) {
         ) +
         theme_minimal() +
         theme(
-          plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+          plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
           axis.title = element_text(size = 12, face = "bold"),
           axis.text = element_text(size = 10),
           legend.position = "right",
